@@ -199,10 +199,6 @@ export function CountingTerminal() {
       }
 
       const detectorConstructor = (window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
-      if (!detectorConstructor) {
-        setCameraError("This browser cannot read barcodes from the camera. Use the barcode field or a hardware scanner.");
-        return;
-      }
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -219,27 +215,31 @@ export function CountingTerminal() {
         cameraVideoRef.current.srcObject = stream;
         await cameraVideoRef.current.play();
 
-        const supportedFormats = detectorConstructor.getSupportedFormats
-          ? await detectorConstructor.getSupportedFormats()
-          : [];
-        const formats = supportedFormats.length > 0
-          ? supportedFormats.filter((format) => format.includes("ean") || format.includes("upc") || format === "code_128")
-          : ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"];
-        const detector = new detectorConstructor({ formats });
+        if (detectorConstructor) {
+          const supportedFormats = detectorConstructor.getSupportedFormats
+            ? await detectorConstructor.getSupportedFormats()
+            : [];
+          const formats = supportedFormats.length > 0
+            ? supportedFormats.filter((format) => format.includes("ean") || format.includes("upc") || format === "code_128")
+            : ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"];
+          const detector = new detectorConstructor({ formats });
 
-        detectionTimer = setInterval(async () => {
-          if (!cameraVideoRef.current || cameraVideoRef.current.readyState < 2) return;
-          try {
-            const detected = await detector.detect(cameraVideoRef.current);
-            const barcode = detected.find((result) => result.rawValue.trim())?.rawValue.trim();
-            if (barcode) {
-              stopCamera();
-              await barcodeLookupRef.current(barcode);
+          detectionTimer = setInterval(async () => {
+            if (!cameraVideoRef.current || cameraVideoRef.current.readyState < 2) return;
+            try {
+              const detected = await detector.detect(cameraVideoRef.current);
+              const barcode = detected.find((result) => result.rawValue.trim())?.rawValue.trim();
+              if (barcode) {
+                stopCamera();
+                await barcodeLookupRef.current(barcode);
+              }
+            } catch {
+              // Detection can fail while the camera is refocusing; the next frame retries.
             }
-          } catch {
-            // Detection can fail while the camera is refocusing; the next frame retries.
-          }
-        }, 300);
+          }, 300);
+        } else {
+          setCameraError("Live camera is on, but this browser cannot read barcodes automatically. Use the barcode field below.");
+        }
       } catch (error) {
         setCameraError(error instanceof DOMException && error.name === "NotAllowedError"
           ? "Camera permission was denied. Allow camera access or use the barcode field."
@@ -608,8 +608,12 @@ export function CountingTerminal() {
                     autoPlay
                   />
                   <div className="absolute inset-x-0 h-0.5 bg-rose-500 animate-pulse shadow-lg shadow-rose-500"></div>
+                  {cameraError && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 p-4 text-center text-xs text-amber-200">
+                      {cameraError}
+                    </div>
+                  )}
                 </div>
-                {cameraError && <p className="mt-2 text-left text-xs text-amber-300">{cameraError}</p>}
                 <p className="mt-2 text-left text-xs text-slate-400">
                   The item will be looked up automatically in the Item Master after detection.
                 </p>
