@@ -239,6 +239,7 @@ export async function POST(req: Request) {
       const updated = await db
         .update(stockCounts)
         .set({
+          userId: user.id,
           physicalQuantity: newPhysicalQty,
           varianceQuantity: varianceQty,
           varianceValue: varianceVal,

@@ -63,6 +63,7 @@ interface CountRecord {
   physicalQuantity: number;
   systemQuantity?: number | null;
   varianceQuantity?: number | null;
+  countedBy?: string;
   createdAt: string;
 }
 
@@ -332,7 +333,10 @@ export function CountingTerminal() {
 
   // Submit physical count
   const handleSaveCount = async (duplicateAction: "ERROR_IF_EXISTS" | "EDIT_EXISTING" | "ADD_ADDITIONAL" = "ERROR_IF_EXISTS") => {
-    if (!selectedTask || !activeItem) return;
+    if (!selectedTask || !activeItem) {
+      setMessage({ text: "Select an assigned location and scan an item before saving.", type: "error" });
+      return;
+    }
 
     const numQty = typeof quantity === "string" ? parseInt(quantity, 10) : quantity;
     if (isNaN(numQty) || numQty < 0) {
@@ -380,6 +384,21 @@ export function CountingTerminal() {
         type: "success",
       });
 
+      const savedCount = json.count || {};
+      setRecentCounts((current) => [
+        {
+          ...savedCount,
+          itemId: activeItem.id,
+          itemName: activeItem.itemName,
+          itemCode: activeItem.itemCode,
+          eanCode: activeItem.eanCode,
+          physicalQuantity: numQty,
+          countedBy: user?.fullName || "Current user",
+          createdAt: savedCount.createdAt || new Date().toISOString(),
+        },
+        ...current.filter((count) => count.id !== savedCount.id),
+      ]);
+
       // Clear input and focus back on scan input
       setActiveItem(null);
       setQuantity(1);
@@ -392,7 +411,7 @@ export function CountingTerminal() {
 
       setTimeout(() => scanInputRef.current?.focus(), 100);
     } catch (err) {
-      setMessage({ text: "Connection error: count saved in local offline queue.", type: "warning" });
+      setMessage({ text: "Unable to save count. Check your connection and try again.", type: "error" });
     } finally {
       setSavingCount(false);
     }
@@ -866,7 +885,7 @@ export function CountingTerminal() {
                     <div>
                       <p className="font-bold text-slate-800">{c.itemName || "Item"}</p>
                       <p className="text-[11px] text-slate-500">
-                        Code: {c.itemCode} | {new Date(c.createdAt).toLocaleTimeString()}
+                        Code: {c.itemCode} | Counted by: {c.countedBy || "Unknown user"} | {new Date(c.createdAt).toLocaleTimeString()}
                       </p>
                     </div>
 
