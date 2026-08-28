@@ -116,12 +116,10 @@ export function StockTakesView() {
 
   // New stock take form
   const [newSTName, setNewSTName] = useState("");
-  const [newSTStoreId, setNewSTStoreId] = useState("");
   const [newSTType, setNewSTType] = useState("FULL");
   const [newSTBlind, setNewSTBlind] = useState(false);
   const [newST100Pct, setNewST100Pct] = useState(true);
   const [newSTNotes, setNewSTNotes] = useState("");
-  const [storesList, setStoresList] = useState<{ id: string; name: string }[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
@@ -144,15 +142,6 @@ export function StockTakesView() {
   // Fetch stores for creation dropdown
   useEffect(() => {
     fetchStockTakes();
-    fetch("/api/stores")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.stores) {
-          setStoresList(data.stores);
-        }
-      })
-      .catch(() => {});
-
     // Fetch users for assignment dropdown
     fetch("/api/users")
       .then((r) => r.json())
@@ -230,7 +219,6 @@ export function StockTakesView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newSTName.trim(),
-          storeId: newSTStoreId || null,
           type: newSTType,
           isBlindCount: newSTBlind,
           require100Percent: newST100Pct,
@@ -243,8 +231,12 @@ export function StockTakesView() {
         setCreateModalOpen(false);
         setNewSTName("");
         setNewSTNotes("");
-        fetchStockTakes();
-        if (json.stockTake) setSelectedST(json.stockTake);
+        const refreshed = await fetch("/api/stock-takes");
+        const refreshedJson = await refreshed.json();
+        const refreshedSessions = refreshedJson.stockTakes || [];
+        setStockTakes(refreshedSessions);
+        const createdSession = refreshedSessions.find((session: StockTake) => session.id === json.stockTake?.id);
+        if (createdSession) setSelectedST(createdSession);
       } else {
         setCreateError(json.error || "Unable to create stock-take session.");
       }
@@ -988,23 +980,7 @@ export function StockTakesView() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700">Store Branch (Optional)</label>
-                  <select
-                    value={newSTStoreId}
-                    onChange={(e) => setNewSTStoreId(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500"
-                  >
-                    <option value="">All branches</option>
-                    {storesList.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
+              <div>
                 <div>
                   <label className="block font-semibold text-slate-700">Stock Take Type</label>
                   <select
