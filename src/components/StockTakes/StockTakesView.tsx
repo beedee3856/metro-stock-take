@@ -123,6 +123,7 @@ export function StockTakesView() {
   const [newSTNotes, setNewSTNotes] = useState("");
   const [storesList, setStoresList] = useState<{ id: string; name: string }[]>([]);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
 
   // Fetch list of stock takes
   const fetchStockTakes = useCallback(async () => {
@@ -216,7 +217,11 @@ export function StockTakesView() {
   // Create Stock Take
   const handleCreateStockTake = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSTName.trim()) return;
+    setCreateError("");
+    if (!newSTName.trim()) {
+      setCreateError("Session Name is required.");
+      return;
+    }
 
     try {
       setCreating(true);
@@ -233,14 +238,19 @@ export function StockTakesView() {
         }),
       });
 
-      if (res.ok) {
+      const json = await res.json();
+      if (res.ok && json.success) {
         setCreateModalOpen(false);
         setNewSTName("");
         setNewSTNotes("");
         fetchStockTakes();
+        if (json.stockTake) setSelectedST(json.stockTake);
+      } else {
+        setCreateError(json.error || "Unable to create stock-take session.");
       }
     } catch (err) {
       console.error("Failed to create stock take", err);
+      setCreateError("Network error while creating the stock-take session.");
     } finally {
       setCreating(false);
     }
@@ -961,6 +971,11 @@ export function StockTakesView() {
             </div>
 
             <form onSubmit={handleCreateStockTake} className="mt-4 space-y-4 text-xs">
+              {createError && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 font-semibold text-rose-700">
+                  {createError}
+                </div>
+              )}
               <div>
                 <label className="block font-semibold text-slate-700">Session Name *</label>
                 <input
@@ -1049,7 +1064,7 @@ export function StockTakesView() {
                 </button>
                 <button
                   type="submit"
-                  disabled={creating || !newSTName.trim()}
+                  disabled={creating}
                   className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {creating ? "Creating..." : "Initialize Session"}

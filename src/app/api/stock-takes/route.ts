@@ -123,7 +123,7 @@ export async function POST(req: Request) {
       .values({
         stockTakeNumber,
         name: name.trim(),
-        storeId,
+        storeId: storeId || null,
         type,
         status: "PLANNED",
         startDate: startDate ? new Date(startDate) : new Date(),
