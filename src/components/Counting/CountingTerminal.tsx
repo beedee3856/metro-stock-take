@@ -66,6 +66,19 @@ interface CountRecord {
   createdAt: string;
 }
 
+interface BarcodeDetectorResult {
+  rawValue: string;
+}
+
+interface BarcodeDetectorLike {
+  detect(source: HTMLVideoElement): Promise<BarcodeDetectorResult[]>;
+}
+
+interface BarcodeDetectorConstructor {
+  new (options?: { formats?: string[] }): BarcodeDetectorLike;
+  getSupportedFormats?: () => Promise<string[]>;
+}
+
 export function CountingTerminal() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<TaskLocation[]>([]);
@@ -105,11 +118,15 @@ export function CountingTerminal() {
   // Recent counts in this session
   const [recentCounts, setRecentCounts] = useState<CountRecord[]>([]);
 
-  // Camera simulator
+  // Camera scanner
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   // Hardware barcode scanner auto-focus
   const scanInputRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const barcodeLookupRef = useRef<(code: string) => Promise<void>>(() => Promise.resolve());
 
   // Fetch tasks assigned to this user
   const fetchTasks = useCallback(async () => {
@@ -158,6 +175,90 @@ export function CountingTerminal() {
       setTimeout(() => scanInputRef.current?.focus(), 150);
     }
   }, [selectedTask, fetchLocationCounts]);
+
+  const stopCamera = useCallback(() => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+  }, []);
+
+  useEffect(() => {
+    if (!cameraActive) return;
+
+    let cancelled = false;
+    let detectionTimer: ReturnType<typeof setInterval> | undefined;
+
+    const startCamera = async () => {
+      setCameraError(null);
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError("Camera access requires a secure HTTPS connection and a supported browser.");
+        return;
+      }
+
+      const detectorConstructor = (window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
+      if (!detectorConstructor) {
+        setCameraError("This browser cannot read barcodes from the camera. Use the barcode field or a hardware scanner.");
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        cameraStreamRef.current = stream;
+        if (!cameraVideoRef.current) return;
+        cameraVideoRef.current.srcObject = stream;
+        await cameraVideoRef.current.play();
+
+        const supportedFormats = detectorConstructor.getSupportedFormats
+          ? await detectorConstructor.getSupportedFormats()
+          : [];
+        const formats = supportedFormats.length > 0
+          ? supportedFormats.filter((format) => format.includes("ean") || format.includes("upc") || format === "code_128")
+          : ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"];
+        const detector = new detectorConstructor({ formats });
+
+        detectionTimer = setInterval(async () => {
+          if (!cameraVideoRef.current || cameraVideoRef.current.readyState < 2) return;
+          try {
+            const detected = await detector.detect(cameraVideoRef.current);
+            const barcode = detected.find((result) => result.rawValue.trim())?.rawValue.trim();
+            if (barcode) {
+              stopCamera();
+              await barcodeLookupRef.current(barcode);
+            }
+          } catch {
+            // Detection can fail while the camera is refocusing; the next frame retries.
+          }
+        }, 300);
+      } catch (error) {
+        setCameraError(error instanceof DOMException && error.name === "NotAllowedError"
+          ? "Camera permission was denied. Allow camera access or use the barcode field."
+          : "Unable to start the camera. Use the barcode field or a hardware scanner.");
+      }
+    };
+
+    startCamera();
+    return () => {
+      cancelled = true;
+      if (detectionTimer) clearInterval(detectionTimer);
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    };
+  }, [cameraActive, stopCamera]);
+
+  useEffect(() => () => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
 
   // Debounced search
   useEffect(() => {
@@ -226,6 +327,8 @@ export function CountingTerminal() {
       setMessage({ text: "Network error looking up barcode", type: "error" });
     }
   };
+
+  barcodeLookupRef.current = (code) => handleBarcodeLookup(code);
 
   // Submit physical count
   const handleSaveCount = async (duplicateAction: "ERROR_IF_EXISTS" | "EDIT_EXISTING" | "ADD_ADDITIONAL" = "ERROR_IF_EXISTS") => {
@@ -472,67 +575,44 @@ export function CountingTerminal() {
               </button>
               <button
                 type="button"
-                onClick={() => setCameraActive(!cameraActive)}
+                onClick={() => {
+                  setCameraError(null);
+                  setCameraActive(true);
+                }}
                 className="rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-slate-700 hover:bg-slate-50 active:scale-95 transition-all"
-                title="Simulate Camera Scanner"
+                title="Open camera barcode scanner"
+                aria-label="Open camera barcode scanner"
               >
                 <Camera className="h-5 w-5 text-rose-600" />
               </button>
             </form>
 
-            {/* Camera Viewfinder Simulator */}
+            {/* Live camera barcode scanner */}
             {cameraActive && (
-              <div className="mt-4 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 p-4 text-white relative">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <div className="mt-4 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 p-4 text-white">
+                <div className="flex items-center justify-between text-xs text-slate-300 mb-2">
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    Camera Scanner Viewfinder Active
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Point camera at the product barcode
                   </span>
-                  <button onClick={() => setCameraActive(false)} className="hover:text-white">
+                  <button onClick={stopCamera} className="hover:text-white" aria-label="Close camera scanner">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="relative h-40 border-2 border-rose-500 rounded-lg flex items-center justify-center bg-slate-950 overflow-hidden">
+                <div className="relative aspect-video border-2 border-rose-500 rounded-lg flex items-center justify-center bg-slate-950 overflow-hidden">
+                  <video
+                    ref={cameraVideoRef}
+                    className="h-full w-full object-cover"
+                    muted
+                    playsInline
+                    autoPlay
+                  />
                   <div className="absolute inset-x-0 h-0.5 bg-rose-500 animate-pulse shadow-lg shadow-rose-500"></div>
-                  <div className="text-center p-2 z-10">
-                    <p className="text-xs text-slate-300 font-mono">Point camera at product barcode</p>
-                    <div className="mt-2 flex flex-wrap justify-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBarcodeInput("5449000000996");
-                          handleBarcodeLookup("5449000000996");
-                          setCameraActive(false);
-                        }}
-                        className="rounded bg-white/20 px-2 py-1 text-[10px] hover:bg-white/30"
-                      >
-                        Sample Coca-Cola
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBarcodeInput("6161101230012");
-                          handleBarcodeLookup("6161101230012");
-                          setCameraActive(false);
-                        }}
-                        className="rounded bg-white/20 px-2 py-1 text-[10px] hover:bg-white/30"
-                      >
-                        Sample Pembe Flour
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBarcodeInput("6161102000034");
-                          handleBarcodeLookup("6161102000034");
-                          setCameraActive(false);
-                        }}
-                        className="rounded bg-white/20 px-2 py-1 text-[10px] hover:bg-white/30"
-                      >
-                        Sample Butter
-                      </button>
-                    </div>
-                  </div>
                 </div>
+                {cameraError && <p className="mt-2 text-left text-xs text-amber-300">{cameraError}</p>}
+                <p className="mt-2 text-left text-xs text-slate-400">
+                  The item will be looked up automatically in the Item Master after detection.
+                </p>
               </div>
             )}
 
