@@ -207,3 +207,43 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to create item" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!hasPermission(user.role, "MANAGE_ITEMS")) {
+      return NextResponse.json({ error: "Forbidden: Only administrators can delete items" }, { status: 403 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const ids = Array.isArray(body.ids) ? body.ids.filter((id: unknown): id is string => typeof id === "string" && id.length > 0) : [];
+    const deleteAll = body.deleteAll === true;
+
+    if (!deleteAll && ids.length === 0) {
+      return NextResponse.json({ error: "Select at least one item to delete" }, { status: 400 });
+    }
+
+    const condition = deleteAll ? undefined : sql`${items.id} in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`;
+    const deleted = await db.delete(items).where(condition).returning({ id: items.id });
+
+    await logAudit({
+      userId: user.id,
+      userName: user.fullName,
+      userRole: user.role,
+      action: "ITEM_DELETE",
+      entityType: "ITEM",
+      entityId: deleted[0]?.id || "BULK",
+      newValue: { deletedCount: deleted.length, deleteAll },
+      reason: deleteAll ? "All items deleted by administrator" : "Selected items deleted by administrator",
+    });
+
+    return NextResponse.json({ success: true, deletedCount: deleted.length });
+  } catch (error) {
+    console.error("Item deletion error:", error);
+    return NextResponse.json({ error: "Unable to delete items. Items already used in stock counts cannot be deleted." }, { status: 409 });
+  }
+}

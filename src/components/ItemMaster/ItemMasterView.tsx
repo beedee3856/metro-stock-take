@@ -19,6 +19,7 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -70,6 +71,8 @@ export function ItemMasterView({ onOpenImportWizard }: ItemMasterViewProps) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -119,6 +122,7 @@ export function ItemMasterView({ onOpenImportWizard }: ItemMasterViewProps) {
       if (res.ok) {
         const data = await res.json();
         setItems(data.items || []);
+        setSelectedItemIds([]);
         if (data.pagination) {
           setTotalPages(data.pagination.totalPages || 1);
           setTotalItems(data.pagination.total || 0);
@@ -134,6 +138,40 @@ export function ItemMasterView({ onOpenImportWizard }: ItemMasterViewProps) {
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
+
+  const handleDeleteItems = async (deleteAll = false) => {
+    const count = deleteAll ? totalItems : selectedItemIds.length;
+    if (count === 0) return;
+    const confirmed = window.confirm(
+      deleteAll
+        ? `Delete all ${count} items from Items & Barcodes? This cannot be undone.`
+        : `Delete ${count} selected item${count === 1 ? "" : "s"}? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      const res = await fetch("/api/items", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(deleteAll ? { deleteAll: true } : { ids: selectedItemIds }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setErrorMsg(json.error || "Unable to delete items.");
+        return;
+      }
+      setErrorMsg("");
+      await fetchItems();
+    } catch {
+      setErrorMsg("Network error deleting items.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const visibleItemIds = items.map((item) => item.id);
+  const allVisibleSelected = visibleItemIds.length > 0 && visibleItemIds.every((id) => selectedItemIds.includes(id));
 
   // Open history modal
   const handleOpenHistory = async (item: Item) => {
@@ -327,8 +365,34 @@ export function ItemMasterView({ onOpenImportWizard }: ItemMasterViewProps) {
               <span>Add Product</span>
             </button>
           )}
+          {user?.role === "ADMINISTRATOR" && (
+            <>
+              <button
+                onClick={() => handleDeleteItems(false)}
+                disabled={deleting || selectedItemIds.length === 0}
+                className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3.5 py-2 text-xs font-semibold text-rose-700 shadow-xs hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Delete Selected ({selectedItemIds.length})</span>
+              </button>
+              <button
+                onClick={() => handleDeleteItems(true)}
+                disabled={deleting || totalItems === 0}
+                className="flex items-center gap-1.5 rounded-xl bg-rose-700 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Delete All</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
+
+      {errorMsg && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
+          {errorMsg}
+        </div>
+      )}
 
       {/* Filter Toolbar */}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
@@ -372,6 +436,14 @@ export function ItemMasterView({ onOpenImportWizard }: ItemMasterViewProps) {
           <table className="w-full text-left text-xs text-slate-600">
             <thead className="border-b border-slate-200 bg-slate-50 font-semibold text-slate-700">
               <tr>
+                <th className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={(event) => setSelectedItemIds(event.target.checked ? [...new Set([...selectedItemIds, ...visibleItemIds])] : selectedItemIds.filter((id) => !visibleItemIds.includes(id)))}
+                    aria-label="Select all visible items"
+                  />
+                </th>
                 <th className="px-4 py-3">Product Name</th>
                 <th className="px-4 py-3">Item Code</th>
                 <th className="px-4 py-3">EAN-13 Barcode</th>
@@ -386,19 +458,27 @@ export function ItemMasterView({ onOpenImportWizard }: ItemMasterViewProps) {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
                     Loading items from PostgreSQL...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
                     No matching items found in Item Master.
                   </td>
                 </tr>
               ) : (
                 items.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedItemIds.includes(item.id)}
+                        onChange={(event) => setSelectedItemIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))}
+                        aria-label={`Select ${item.itemName}`}
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <p className="font-semibold text-slate-900">{item.itemName}</p>
                       {item.brand && <span className="text-[10px] text-slate-400">{item.brand}</span>}
