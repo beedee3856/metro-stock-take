@@ -146,11 +146,11 @@ export async function POST(req: Request) {
     let targetLocations: { id: string }[] = [];
     if (Array.isArray(selectedLocationIds) && selectedLocationIds.length > 0) {
       targetLocations = selectedLocationIds.map((id: string) => ({ id }));
-    } else if (type === "FULL" && storeId) {
+    } else if (type === "FULL") {
       targetLocations = await db
         .select({ id: locations.id })
         .from(locations)
-        .where(eq(locations.storeId, storeId));
+        .where(storeId ? eq(locations.storeId, storeId) : undefined);
     }
 
     if (targetLocations.length > 0) {
