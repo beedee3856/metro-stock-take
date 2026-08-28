@@ -102,12 +102,12 @@ export function ReportsView() {
         ["Total Physical Counted", String(d.totalCounted || 0)],
         ["Total Uncounted Items", String(d.totalNotCounted || 0)],
         ["Net Variance Units", String(d.totalVarianceQty || 0)],
-        ["Total Variance Valuation ($)", `$${d.totalVarianceVal || "0.00"}`],
-        ["Positive Surplus ($)", `+$${d.positiveVarianceVal || "0.00"}`],
-        ["Negative Shortage ($)", `-$${d.negativeVarianceVal || "0.00"}`],
+        ["Total Variance Valuation (Ksh)", `Ksh ${d.totalVarianceVal || "0.00"}`],
+        ["Positive Surplus (Ksh)", `+Ksh ${d.positiveVarianceVal || "0.00"}`],
+        ["Negative Shortage (Ksh)", `-Ksh ${d.negativeVarianceVal || "0.00"}`],
       ];
     } else if (reportType === "DETAILED" && Array.isArray(reportData.rows)) {
-      columns = ["Location", "Item Name", "Item Code", "EAN", "System", "Physical", "Variance", "Cost", "Value ($)", "Stock Taker"];
+      columns = ["Location", "Item Name", "Item Code", "EAN", "System", "Physical", "Variance", "Cost (Ksh)", "Value (Ksh)", "Stock Taker"];
       rows = (reportData.rows as Record<string, unknown>[]).map((r) => [
         String(r.locationCode || ""),
         String(r.itemName || ""),
@@ -116,8 +116,8 @@ export function ReportsView() {
         String(r.systemQuantity || 0),
         String(r.physicalQuantity || 0),
         String(r.varianceQuantity || 0),
-        `$${r.costPrice || "0.00"}`,
-        `$${r.varianceValue || "0.00"}`,
+        `Ksh ${r.costPrice || "0.00"}`,
+        `Ksh ${r.varianceValue || "0.00"}`,
         String(r.stockTaker || ""),
       ]);
     } else if (reportType === "VARIANCE" && Array.isArray(reportData.rows)) {
@@ -128,8 +128,8 @@ export function ReportsView() {
         String(r.systemStock || 0),
         String(r.physicalStock || 0),
         String(r.varianceQty || 0),
-        `$${r.costPrice || "0.00"}`,
-        `$${r.varianceValue || "0.00"}`,
+        `Ksh ${r.costPrice || "0.00"}`,
+        `Ksh ${r.varianceValue || "0.00"}`,
         String(r.status || ""),
         String(r.countedBy || ""),
       ]);
@@ -295,7 +295,7 @@ export function ReportsView() {
                   </div>
                   <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-center">
                     <span className="text-xs text-slate-500">Net Variance Value</span>
-                    <p className="mt-1 text-2xl font-bold text-rose-600">${String(d.totalVarianceVal || "0.00")}</p>
+                    <p className="mt-1 text-2xl font-bold text-rose-600">Ksh {String(d.totalVarianceVal || "0.00")}</p>
                   </div>
                 </div>
               );
@@ -329,11 +329,11 @@ export function ReportsView() {
                         </tr>
                         <tr>
                           <td className="px-4 py-2.5 font-medium">Positive Surplus Value (Physical &gt; System)</td>
-                          <td className="px-4 py-2.5 text-right font-bold text-emerald-600">+${String(d.positiveVarianceVal || "0.00")}</td>
+                          <td className="px-4 py-2.5 text-right font-bold text-emerald-600">+Ksh {String(d.positiveVarianceVal || "0.00")}</td>
                         </tr>
                         <tr>
                           <td className="px-4 py-2.5 font-medium">Negative Shortage Value (Physical &lt; System)</td>
-                          <td className="px-4 py-2.5 text-right font-bold text-rose-600">-${String(d.negativeVarianceVal || "0.00")}</td>
+                          <td className="px-4 py-2.5 text-right font-bold text-rose-600">-Ksh {String(d.negativeVarianceVal || "0.00")}</td>
                         </tr>
                       </>
                     );
@@ -358,7 +358,7 @@ export function ReportsView() {
                   <th className="px-3 py-2.5">Physical</th>
                   <th className="px-3 py-2.5">Variance</th>
                   <th className="px-3 py-2.5">Cost</th>
-                  <th className="px-3 py-2.5">Value ($)</th>
+                  <th className="px-3 py-2.5">Value (Ksh)</th>
                   <th className="px-3 py-2.5">Stock Taker</th>
                 </tr>
               </thead>
@@ -376,8 +376,8 @@ export function ReportsView() {
                         {Number(r.varianceQuantity) > 0 ? `+${r.varianceQuantity}` : String(r.varianceQuantity || 0)}
                       </span>
                     </td>
-                    <td className="px-3 py-2">${String(r.costPrice || "0.00")}</td>
-                    <td className="px-3 py-2 font-bold">${String(r.varianceValue || "0.00")}</td>
+                    <td className="px-3 py-2">Ksh {String(r.costPrice || "0.00")}</td>
+                    <td className="px-3 py-2 font-bold">Ksh {String(r.varianceValue || "0.00")}</td>
                     <td className="px-3 py-2 text-slate-700">{String(r.stockTaker || "")}</td>
                   </tr>
                 ))}
@@ -416,8 +416,8 @@ export function ReportsView() {
                         {Number(r.varianceQty) > 0 ? `+${r.varianceQty}` : String(r.varianceQty || 0)}
                       </span>
                     </td>
-                    <td className="px-3 py-2">${String(r.costPrice || "0.00")}</td>
-                    <td className="px-3 py-2 font-bold text-rose-600">${String(r.varianceValue || "0.00")}</td>
+                    <td className="px-3 py-2">Ksh {String(r.costPrice || "0.00")}</td>
+                    <td className="px-3 py-2 font-bold text-rose-600">Ksh {String(r.varianceValue || "0.00")}</td>
                     <td className="px-3 py-2 text-slate-700">{String(r.countedBy || "")}</td>
                   </tr>
                 ))}

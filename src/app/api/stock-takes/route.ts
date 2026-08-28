@@ -110,10 +110,6 @@ export async function POST(req: Request) {
     if (!name?.trim()) {
       return NextResponse.json({ error: "Stock Take Name is required" }, { status: 400 });
     }
-    if (!storeId) {
-      return NextResponse.json({ error: "Store is required" }, { status: 400 });
-    }
-
     // Generate reference number ST-YYYY-XXXXX
     const year = new Date().getFullYear();
     const countResult = await db
@@ -150,7 +146,7 @@ export async function POST(req: Request) {
     let targetLocations: { id: string }[] = [];
     if (Array.isArray(selectedLocationIds) && selectedLocationIds.length > 0) {
       targetLocations = selectedLocationIds.map((id: string) => ({ id }));
-    } else if (type === "FULL") {
+    } else if (type === "FULL" && storeId) {
       targetLocations = await db
         .select({ id: locations.id })
         .from(locations)

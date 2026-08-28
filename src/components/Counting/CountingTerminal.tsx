@@ -300,7 +300,7 @@ export function CountingTerminal() {
 
       if (!res.ok || !json.found) {
         setMessage({
-          text: "Item not found in Item Master. This EAN does not exist in the Item Master.",
+          text: "Barcode not found in Items & Barcodes. Upload or add this product before scanning it.",
           type: "error",
         });
         setActiveItem(null);
@@ -615,7 +615,7 @@ export function CountingTerminal() {
                   )}
                 </div>
                 <p className="mt-2 text-left text-xs text-slate-400">
-                  The item will be looked up automatically in the Item Master after detection.
+                  The barcode will be looked up automatically in Items & Barcodes after detection.
                 </p>
               </div>
             )}

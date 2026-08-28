@@ -297,7 +297,7 @@ export function DashboardView({ onSelectSection }: DashboardViewProps) {
               <span className="text-xs font-medium">Net Variance Val</span>
               <DollarSign className="h-4 w-4 text-rose-600" />
             </div>
-            <p className="mt-2 text-2xl font-bold text-slate-900">${s.totalVarianceVal}</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">Ksh {s.totalVarianceVal}</p>
             <span className="mt-1 inline-block text-[11px] text-slate-500">Cost Price Impact</span>
           </div>
 
@@ -307,7 +307,7 @@ export function DashboardView({ onSelectSection }: DashboardViewProps) {
               <span className="text-xs font-medium">Positive Variance</span>
               <TrendingUp className="h-4 w-4 text-emerald-600" />
             </div>
-            <p className="mt-2 text-2xl font-bold text-emerald-600">+${s.positiveVarianceVal}</p>
+            <p className="mt-2 text-2xl font-bold text-emerald-600">+Ksh {s.positiveVarianceVal}</p>
             <span className="mt-1 inline-block text-[11px] text-emerald-600">Surplus Physical</span>
           </div>
 
@@ -317,7 +317,7 @@ export function DashboardView({ onSelectSection }: DashboardViewProps) {
               <span className="text-xs font-medium">Negative Variance</span>
               <TrendingDown className="h-4 w-4 text-rose-600" />
             </div>
-            <p className="mt-2 text-2xl font-bold text-rose-600">-${s.negativeVarianceVal}</p>
+            <p className="mt-2 text-2xl font-bold text-rose-600">-Ksh {s.negativeVarianceVal}</p>
             <span className="mt-1 inline-block text-[11px] text-rose-600">Inventory Shortage</span>
           </div>
 
@@ -450,7 +450,7 @@ export function DashboardView({ onSelectSection }: DashboardViewProps) {
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold text-slate-700">{d.department}</span>
                       <span className={`font-bold ${isPositive ? "text-emerald-600" : "text-rose-600"}`}>
-                        {isPositive ? `+$${d.varianceVal}` : `-$${Math.abs(d.varianceVal)}`}
+                        {isPositive ? `+Ksh ${d.varianceVal}` : `-Ksh ${Math.abs(d.varianceVal)}`}
                         <span className="ml-1 text-[10px] text-slate-400 font-normal">({d.itemsCount} items)</span>
                       </span>
                     </div>
@@ -504,7 +504,7 @@ export function DashboardView({ onSelectSection }: DashboardViewProps) {
                   </div>
                   <div className="text-right">
                     <span className="font-bold text-slate-900">
-                      ${Math.abs(loc.varianceVal).toFixed(2)}
+                      Ksh {Math.abs(loc.varianceVal).toFixed(2)}
                     </span>
                     <p className="text-[10px] text-slate-500">Valuation Delta</p>
                   </div>

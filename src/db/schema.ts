@@ -126,7 +126,7 @@ export const stockTakes = pgTable("stock_takes", {
   id: uuid("id").defaultRandom().primaryKey(),
   stockTakeNumber: text("stock_take_number").notNull().unique(), // ST-2026-00001
   name: text("name").notNull(),
-  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  storeId: uuid("store_id").references(() => stores.id),
   type: text("type").default("FULL").notNull(), // FULL, DEPARTMENT, LOCATION, CYCLE_COUNT, RECOUNT
   status: text("status").default("DRAFT").notNull(), // DRAFT, PLANNED, OPEN, IN_PROGRESS, COUNTING, REVIEW, RECOUNT, APPROVED, FINALIZED, CANCELLED
   startDate: timestamp("start_date").defaultNow().notNull(),

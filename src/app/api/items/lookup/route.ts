@@ -39,7 +39,7 @@ export async function GET(req: Request) {
       return NextResponse.json(
         {
           found: false,
-          error: "Item not found in Item Master. This EAN does not exist in the Item Master.",
+          error: "Barcode not found in Items & Barcodes. Upload or add this product before scanning it.",
         },
         { status: 404 }
       );

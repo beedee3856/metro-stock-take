@@ -319,8 +319,8 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
                         <th className="px-3 py-2">Item Name</th>
                         <th className="px-3 py-2">Item Code</th>
                         <th className="px-3 py-2">EAN Code</th>
-                        <th className="px-3 py-2">Cost ($)</th>
-                        <th className="px-3 py-2">Selling ($)</th>
+                        <th className="px-3 py-2">Cost (Ksh)</th>
+                        <th className="px-3 py-2">Selling (Ksh)</th>
                         <th className="px-3 py-2">Stock</th>
                       </tr>
                     </thead>
@@ -331,8 +331,8 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
                           <td className="px-3 py-2 font-semibold text-slate-900">{r.itemName}</td>
                           <td className="px-3 py-2 font-mono">{r.itemCode}</td>
                           <td className="px-3 py-2 font-mono">{r.eanCode}</td>
-                          <td className="px-3 py-2">${r.costPrice}</td>
-                          <td className="px-3 py-2">${r.sellingPrice}</td>
+                          <td className="px-3 py-2">Ksh {r.costPrice}</td>
+                          <td className="px-3 py-2">Ksh {r.sellingPrice}</td>
                           <td className="px-3 py-2">{r.openingStock}</td>
                         </tr>
                       ))}

@@ -158,7 +158,11 @@ export async function POST(req: Request) {
     }
 
     // Verify location assignment
-    const stlRows = await db.select().from(stockTakeLocations).where(eq(stockTakeLocations.id, stockTakeLocationId)).limit(1);
+    const stlRows = await db
+      .select()
+      .from(stockTakeLocations)
+      .where(and(eq(stockTakeLocations.id, stockTakeLocationId), eq(stockTakeLocations.stockTakeId, stockTakeId)))
+      .limit(1);
     if (stlRows.length === 0) {
       return NextResponse.json({ error: "Stock take location not found" }, { status: 404 });
     }

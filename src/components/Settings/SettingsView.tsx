@@ -342,7 +342,7 @@ export function SettingsView() {
 
           <div>
             <label className="block font-semibold text-slate-700">
-              Valuation Threshold ($)
+              Valuation Threshold (Ksh)
             </label>
             <input
               type="number"

@@ -290,7 +290,7 @@ export function ItemMasterView({ onOpenImportWizard }: ItemMasterViewProps) {
       {/* Top Actions & Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Supermarket Item Master</h2>
+          <h2 className="text-xl font-bold text-slate-900">Items & Barcodes</h2>
           <p className="text-xs text-slate-500">
             Maintain catalog of products, barcodes, EAN codes, pricing, and system stock levels
           </p>
@@ -414,8 +414,8 @@ export function ItemMasterView({ onOpenImportWizard }: ItemMasterViewProps) {
                         {item.uom}
                       </span>
                     </td>
-                    <td className="px-4 py-3">${item.costPrice}</td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">${item.sellingPrice}</td>
+                    <td className="px-4 py-3">Ksh {item.costPrice}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">Ksh {item.sellingPrice}</td>
                     <td className="px-4 py-3">
                       <span className="font-bold text-slate-900">{item.currentSystemStock}</span>
                     </td>
@@ -534,7 +534,7 @@ export function ItemMasterView({ onOpenImportWizard }: ItemMasterViewProps) {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700">Cost Price ($)</label>
+                  <label className="block font-semibold text-slate-700">Cost Price (Ksh)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -544,7 +544,7 @@ export function ItemMasterView({ onOpenImportWizard }: ItemMasterViewProps) {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700">Selling Price ($)</label>
+                  <label className="block font-semibold text-slate-700">Selling Price (Ksh)</label>
                   <input
                     type="number"
                     step="0.01"

@@ -41,8 +41,8 @@ interface StockTake {
   require100Percent: boolean;
   twoPersonControl: boolean;
   isLocked: boolean;
-  storeName: string;
-  storeId: string;
+  storeName?: string | null;
+  storeId?: string | null;
   totalLocations: number;
   completedLocations: number;
   inProgressLocations: number;
@@ -148,7 +148,6 @@ export function StockTakesView() {
       .then((data) => {
         if (data.stores) {
           setStoresList(data.stores);
-          if (data.stores.length > 0) setNewSTStoreId(data.stores[0].id);
         }
       })
       .catch(() => {});
@@ -217,7 +216,7 @@ export function StockTakesView() {
   // Create Stock Take
   const handleCreateStockTake = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSTName.trim() || !newSTStoreId) return;
+    if (!newSTName.trim()) return;
 
     try {
       setCreating(true);
@@ -226,7 +225,7 @@ export function StockTakesView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newSTName.trim(),
-          storeId: newSTStoreId,
+          storeId: newSTStoreId || null,
           type: newSTType,
           isBlindCount: newSTBlind,
           require100Percent: newST100Pct,
@@ -330,7 +329,7 @@ export function StockTakesView() {
 
   const handleExportPDF = () => {
     if (!selectedST) return;
-    const columns = ["Location", "Item Name", "Item Code", "System", "Physical", "Variance", "Cost", "Value ($)", "Status"];
+    const columns = ["Location", "Item Name", "Item Code", "System", "Physical", "Variance", "Cost (Ksh)", "Value (Ksh)", "Status"];
     const rows = stCounts.map((c) => [
       c.locationCode || "",
       c.itemName || "",
@@ -338,8 +337,8 @@ export function StockTakesView() {
       c.systemQuantity !== null ? String(c.systemQuantity) : "N/A",
       String(c.physicalQuantity),
       c.varianceQuantity !== null ? String(c.varianceQuantity) : "N/A",
-      `$${c.costPrice}`,
-      c.varianceValue ? `$${c.varianceValue}` : "$0.00",
+      `Ksh ${c.costPrice}`,
+      c.varianceValue ? `Ksh ${c.varianceValue}` : "Ksh 0.00",
       c.countStatus,
     ]);
 
@@ -417,7 +416,7 @@ export function StockTakesView() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3.5 text-slate-700">{st.storeName}</td>
+                        <td className="px-4 py-3.5 text-slate-700">{st.storeName || "All branches"}</td>
                         <td className="px-4 py-3.5">
                           <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
                             {st.type}
@@ -800,7 +799,7 @@ export function StockTakesView() {
                               {(c.varianceQuantity || 0) > 0 ? `+${c.varianceQuantity}` : c.varianceQuantity}
                             </span>
                           </td>
-                          <td className="px-4 py-3 font-semibold">${c.varianceValue || "0.00"}</td>
+                          <td className="px-4 py-3 font-semibold">Ksh {c.varianceValue || "0.00"}</td>
                           <td className="px-4 py-3 text-slate-700">{c.countedBy}</td>
                           <td className="px-4 py-3">
                             <span
@@ -873,8 +872,8 @@ export function StockTakesView() {
                                 {(c.varianceQuantity || 0) > 0 ? `+${c.varianceQuantity}` : c.varianceQuantity}
                               </span>
                             </td>
-                            <td className="px-4 py-3">${c.costPrice}</td>
-                            <td className="px-4 py-3 font-bold">${c.varianceValue}</td>
+                            <td className="px-4 py-3">Ksh {c.costPrice}</td>
+                            <td className="px-4 py-3 font-bold">Ksh {c.varianceValue}</td>
                             <td className="px-4 py-3">
                               <span className="rounded bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">
                                 Review Flagged
@@ -976,12 +975,13 @@ export function StockTakesView() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700">Store Branch *</label>
+                  <label className="block font-semibold text-slate-700">Store Branch (Optional)</label>
                   <select
                     value={newSTStoreId}
                     onChange={(e) => setNewSTStoreId(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500"
                   >
+                    <option value="">All branches</option>
                     {storesList.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
@@ -1049,8 +1049,8 @@ export function StockTakesView() {
                 </button>
                 <button
                   type="submit"
-                  disabled={creating}
-                  className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+                  disabled={creating || !newSTName.trim()}
+                  className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {creating ? "Creating..." : "Initialize Session"}
                 </button>
