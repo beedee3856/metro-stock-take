@@ -347,7 +347,7 @@ export function StockTakesView() {
     exportDetailedPDF({
       title: "Stock Taking Comprehensive Audit Report",
       stockTakeNumber: selectedST.stockTakeNumber,
-      storeName: selectedST.storeName,
+      storeName: selectedST.storeName || "All branches",
       date: new Date(selectedST.startDate).toLocaleDateString(),
       status: selectedST.status,
       preparedBy: user?.fullName || "Stock Audit Admin",
