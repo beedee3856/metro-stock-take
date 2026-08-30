@@ -128,26 +128,31 @@ export function CountingTerminal() {
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const barcodeLookupRef = useRef<(code: string) => Promise<void>>(() => Promise.resolve());
+  const activeLookupAbortRef = useRef<AbortController | null>(null);
 
   // Fetch tasks assigned to this user
   const fetchTasks = useCallback(async () => {
     try {
       setLoadingTasks(true);
-      const res = await fetch("/api/my-tasks");
+      const res = await fetch("/api/my-tasks", { cache: "no-store" });
       if (res.ok) {
         const json = await res.json();
         const tList = json.tasks || [];
         setTasks(tList);
-        if (tList.length > 0 && !selectedTask) {
-          setSelectedTask(tList[0]);
-        }
+        setSelectedTask((current) => {
+          if (tList.length === 0) return null;
+          if (current && tList.some((task: TaskLocation) => task.id === current.id)) {
+            return current;
+          }
+          return tList[0] as TaskLocation;
+        });
       }
     } catch (err) {
       console.error("Failed to fetch tasks", err);
     } finally {
       setLoadingTasks(false);
     }
-  }, [selectedTask]);
+  }, []);
 
   useEffect(() => {
     fetchTasks();
@@ -271,7 +276,9 @@ export function CountingTerminal() {
     const timer = setTimeout(async () => {
       try {
         setSearching(true);
-        const res = await fetch(`/api/items?query=${encodeURIComponent(searchQuery)}&limit=8`);
+        const res = await fetch(`/api/items?query=${encodeURIComponent(searchQuery)}&limit=8`, {
+          cache: "no-store",
+        });
         if (res.ok) {
           const json = await res.json();
           setSearchResults(json.items || []);
@@ -281,7 +288,7 @@ export function CountingTerminal() {
       } finally {
         setSearching(false);
       }
-    }, 250);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -293,11 +300,23 @@ export function CountingTerminal() {
 
     setMessage(null);
 
+    activeLookupAbortRef.current?.abort();
+    const controller = new AbortController();
+    activeLookupAbortRef.current = controller;
+
     try {
       const res = await fetch(
-        `/api/items/lookup?barcode=${encodeURIComponent(code)}&stockTakeLocationId=${selectedTask.id}`
+        `/api/items/lookup?barcode=${encodeURIComponent(code)}&stockTakeLocationId=${selectedTask.id}`,
+        {
+          cache: "no-store",
+          signal: controller.signal,
+        }
       );
       const json = await res.json();
+
+      if (controller.signal.aborted) {
+        return;
+      }
 
       if (!res.ok || !json.found) {
         setMessage({
@@ -325,6 +344,7 @@ export function CountingTerminal() {
         setQuantity(1);
       }
     } catch (err) {
+      if ((err as Error).name === "AbortError") return;
       setMessage({ text: "Network error looking up barcode", type: "error" });
     }
   };
