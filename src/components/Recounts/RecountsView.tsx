@@ -48,6 +48,15 @@ export function RecountsView() {
   const [resolveNotes, setResolveNotes] = useState("");
   const [resolving, setResolving] = useState(false);
 
+  // Send Recount Modal
+  const [sendRecountItem, setSendRecountItem] = useState<RecountItem | null>(null);
+  const [sendingRecount, setSendingRecount] = useState(false);
+
+  // Accept Verified Modal
+  const [acceptVerifiedItem, setAcceptVerifiedItem] = useState<RecountItem | null>(null);
+  const [verificationNotes, setVerificationNotes] = useState("");
+  const [acceptingVerified, setAcceptingVerified] = useState(false);
+
   const fetchRecounts = async () => {
     try {
       setLoading(true);
@@ -98,6 +107,66 @@ export function RecountsView() {
       console.error("Failed to resolve recount", err);
     } finally {
       setResolving(false);
+    }
+  };
+
+  const handleSendRecount = (r: RecountItem) => {
+    setSendRecountItem(r);
+  };
+
+  const handleConfirmSendRecount = async () => {
+    if (!sendRecountItem) return;
+
+    try {
+      setSendingRecount(true);
+      const res = await fetch("/api/recounts/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recountId: sendRecountItem.id,
+          assignedToUserId: user?.id,
+          notes: "Recount sent for stock taker verification",
+        }),
+      });
+
+      if (res.ok) {
+        setSendRecountItem(null);
+        fetchRecounts();
+      }
+    } catch (err) {
+      console.error("Failed to send recount", err);
+    } finally {
+      setSendingRecount(false);
+    }
+  };
+
+  const handleAcceptVerified = (r: RecountItem) => {
+    setAcceptVerifiedItem(r);
+    setVerificationNotes("");
+  };
+
+  const handleConfirmAcceptVerified = async () => {
+    if (!acceptVerifiedItem) return;
+
+    try {
+      setAcceptingVerified(true);
+      const res = await fetch("/api/recounts/accept-verified", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recountId: acceptVerifiedItem.id,
+          verificationNotes,
+        }),
+      });
+
+      if (res.ok) {
+        setAcceptVerifiedItem(null);
+        fetchRecounts();
+      }
+    } catch (err) {
+      console.error("Failed to accept verified recount", err);
+    } finally {
+      setAcceptingVerified(false);
     }
   };
 
@@ -198,7 +267,7 @@ export function RecountsView() {
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                          r.status === "COMPLETED"
+                          r.status === "COMPLETED" || r.status === "ACCEPTED_VERIFIED"
                             ? "bg-emerald-100 text-emerald-800"
                             : "bg-rose-100 text-rose-800"
                         }`}
@@ -209,11 +278,24 @@ export function RecountsView() {
                     <td className="px-4 py-3 text-right">
                       {r.status === "PENDING" && (
                         <button
-                          onClick={() => handleOpenResolve(r)}
-                          className="rounded-lg bg-rose-600 px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-rose-700"
+                          onClick={() => handleSendRecount(r)}
+                          className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-blue-700"
                         >
-                          Resolve Recount
+                          Send Recount
                         </button>
+                      )}
+                      {r.status === "COMPLETED" && (
+                        <button
+                          onClick={() => handleAcceptVerified(r)}
+                          className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-emerald-700"
+                        >
+                          Accept Verified
+                        </button>
+                      )}
+                      {(r.status === "ASSIGNED" || r.status === "IN_PROGRESS") && (
+                        <span className="text-xs text-slate-500 italic">
+                          Pending Stock Taker
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -303,6 +385,108 @@ export function RecountsView() {
                 className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
               >
                 {resolving ? "Resolving..." : "Accept Verified Recount"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SEND RECOUNT MODAL */}
+      {sendRecountItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+              <Users className="h-6 w-6" />
+            </div>
+
+            <h3 className="mt-3 text-base font-bold text-slate-900">Send Recount to Stock Taker</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Item: <strong>{sendRecountItem.itemName}</strong> ({sendRecountItem.locationCode})
+            </p>
+
+            <div className="mt-4 rounded-xl bg-blue-50 p-3 text-xs border border-blue-200">
+              <p className="text-slate-700">
+                This item will be sent to the stock taker for physical verification and recount. They will be notified immediately.
+              </p>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSendRecountItem(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSendRecount}
+                disabled={sendingRecount}
+                className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {sendingRecount ? "Sending..." : "Send Recount"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACCEPT VERIFIED MODAL */}
+      {acceptVerifiedItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+
+            <h3 className="mt-3 text-base font-bold text-slate-900">Accept Verified Recount</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Item: <strong>{acceptVerifiedItem.itemName}</strong> ({acceptVerifiedItem.locationCode})
+            </p>
+
+            <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs space-y-1.5 border border-slate-200">
+              <div className="flex justify-between">
+                <span className="text-slate-600">System Quantity:</span>
+                <strong className="text-slate-900">{acceptVerifiedItem.systemQty} units</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Recount Result:</span>
+                <strong className="text-emerald-600">{acceptVerifiedItem.recountPhysicalQty} units</strong>
+              </div>
+              <div className="flex justify-between border-t pt-1.5 mt-1.5">
+                <span className="text-slate-600">Variance:</span>
+                <strong className={acceptVerifiedItem.recountPhysicalQty && acceptVerifiedItem.recountPhysicalQty > acceptVerifiedItem.systemQty ? "text-emerald-600" : "text-rose-600"}>
+                  {acceptVerifiedItem.recountPhysicalQty && acceptVerifiedItem.recountPhysicalQty > acceptVerifiedItem.systemQty ? `+${(acceptVerifiedItem.recountPhysicalQty - acceptVerifiedItem.systemQty)}` : acceptVerifiedItem.recountPhysicalQty ? `-${(acceptVerifiedItem.systemQty - acceptVerifiedItem.recountPhysicalQty)}` : "0"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="block font-semibold text-slate-700 text-xs">Verification Notes (Optional)</label>
+              <textarea
+                rows={2}
+                value={verificationNotes}
+                onChange={(e) => setVerificationNotes(e.target.value)}
+                placeholder="e.g. Variance confirmed and accepted due to inventory adjustment..."
+                className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setAcceptVerifiedItem(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAcceptVerified}
+                disabled={acceptingVerified}
+                className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {acceptingVerified ? "Accepting..." : "Accept Verified"}
               </button>
             </div>
           </div>

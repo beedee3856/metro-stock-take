@@ -100,6 +100,9 @@ export function StockTakesView() {
   const [stLocations, setStLocations] = useState<StockTakeLocation[]>([]);
   const [stCounts, setStCounts] = useState<StockCountRow[]>([]);
   const [stStats, setStStats] = useState<Record<string, unknown> | null>(null);
+  const [selectedCountIds, setSelectedCountIds] = useState<string[]>([]);
+  const [deletingCounts, setDeletingCounts] = useState(false);
+  const [deletingSession, setDeletingSession] = useState<string | null>(null);
 
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -107,6 +110,8 @@ export function StockTakesView() {
   const [activeLocationToAssign, setActiveLocationToAssign] = useState<StockTakeLocation | null>(null);
   const [allStockTakers, setAllStockTakers] = useState<{ id: string; fullName: string }[]>([]);
   const [selectedTakerId, setSelectedTakerId] = useState("");
+  const [quickAssignLocationId, setQuickAssignLocationId] = useState("");
+  const [quickAssignTakerId, setQuickAssignTakerId] = useState("");
 
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
   const [generateAdjustments, setGenerateAdjustments] = useState(true);
@@ -117,6 +122,9 @@ export function StockTakesView() {
   // New stock take form
   const [newSTName, setNewSTName] = useState("");
   const [newSTType, setNewSTType] = useState("FULL");
+  const [newSTStoreId, setNewSTStoreId] = useState("");
+  const [newSTStoreName, setNewSTStoreName] = useState("");
+  const [availableStores, setAvailableStores] = useState<{ id: string; name: string; code: string }[]>([]);
   const [newSTBlind, setNewSTBlind] = useState(false);
   const [newST100Pct, setNewST100Pct] = useState(true);
   const [newSTNotes, setNewSTNotes] = useState("");
@@ -142,6 +150,17 @@ export function StockTakesView() {
   // Fetch stores for creation dropdown
   useEffect(() => {
     fetchStockTakes();
+    fetch("/api/stores")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.stores) {
+          setAvailableStores(data.stores);
+          if (data.stores.length > 0) {
+            setNewSTStoreId(data.stores[0].id);
+          }
+        }
+      })
+      .catch(() => {});
     // Fetch users for assignment dropdown
     fetch("/api/users")
       .then((r) => r.json())
@@ -155,6 +174,12 @@ export function StockTakesView() {
       })
       .catch(() => {});
   }, [fetchStockTakes]);
+
+  useEffect(() => {
+    if (quickAssignLocationId && !stLocations.some((loc) => loc.id === quickAssignLocationId && !loc.assignedUserId)) {
+      setQuickAssignLocationId("");
+    }
+  }, [quickAssignLocationId, stLocations]);
 
   // Load detailed stock take when selected
   const fetchSessionDetails = useCallback(async (stId: string) => {
@@ -219,6 +244,8 @@ export function StockTakesView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newSTName.trim(),
+          storeId: newSTStoreId || undefined,
+          storeName: newSTStoreName.trim() || undefined,
           type: newSTType,
           isBlindCount: newSTBlind,
           require100Percent: newST100Pct,
@@ -268,6 +295,85 @@ export function StockTakesView() {
       }
     } catch (err) {
       console.error("Failed to assign staff", err);
+    }
+  };
+
+  const toggleCountSelection = (id: string) => {
+    setSelectedCountIds((prev) =>
+      prev.includes(id) ? prev.filter((countId) => countId !== id) : [...prev, id]
+    );
+  };
+
+  const handleDeleteCounts = async (ids?: string[]) => {
+    if (!selectedST) return;
+    const countIds = ids && ids.length > 0 ? ids : selectedCountIds;
+    if (countIds.length === 0) return;
+
+    try {
+      setDeletingCounts(true);
+      const res = await fetch("/api/stock-counts", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ countIds, stockTakeId: selectedST.id }),
+      });
+
+      if (res.ok) {
+        const updated = selectedCountIds.filter((id) => !countIds.includes(id));
+        setSelectedCountIds(updated);
+        fetchSessionDetails(selectedST.id);
+      }
+    } catch (err) {
+      console.error("Failed to delete stock counts", err);
+    } finally {
+      setDeletingCounts(false);
+    }
+  };
+
+  const handleDeleteSession = async (stockTakeId: string) => {
+    if (!stockTakeId) return;
+
+    const confirmed = window.confirm("Delete this stock take session? This cannot be undone.");
+    if (!confirmed) return;
+
+    try {
+      setDeletingSession(stockTakeId);
+      const res = await fetch("/api/stock-takes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stockTakeId }),
+      });
+
+      if (res.ok) {
+        setSelectedST(null);
+        fetchStockTakes();
+      }
+    } catch (err) {
+      console.error("Failed to delete stock take", err);
+    } finally {
+      setDeletingSession(null);
+    }
+  };
+
+  const handleQuickAssignLocation = async () => {
+    if (!selectedST || !quickAssignLocationId) return;
+
+    try {
+      const res = await fetch(`/api/stock-takes/${selectedST.id}/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stockTakeLocationId: quickAssignLocationId,
+          assignedUserId: quickAssignTakerId || null,
+        }),
+      });
+
+      if (res.ok) {
+        setQuickAssignLocationId("");
+        setQuickAssignTakerId("");
+        fetchSessionDetails(selectedST.id);
+      }
+    } catch (err) {
+      console.error("Failed to assign stock taker to location", err);
     }
   };
 
@@ -457,13 +563,25 @@ export function StockTakesView() {
                           </span>
                         </td>
                         <td className="px-4 py-3.5 text-right">
-                          <button
-                            onClick={() => setSelectedST(st)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-600 shadow-xs hover:bg-rose-50"
-                          >
-                            <span>Open Details</span>
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setSelectedST(st)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-600 shadow-xs hover:bg-rose-50"
+                            >
+                              <span>Open Details</span>
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+
+                            {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
+                              <button
+                                onClick={() => handleDeleteSession(st.id)}
+                                disabled={deletingSession === st.id}
+                                className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[10px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                              >
+                                {deletingSession === st.id ? "Deleting..." : "Delete"}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -546,6 +664,17 @@ export function StockTakesView() {
                   <span>Finalize Stock Take</span>
                 </button>
               )}
+
+              {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
+                <button
+                  onClick={() => handleDeleteSession(selectedST.id)}
+                  disabled={deletingSession === selectedST.id}
+                  className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>{deletingSession === selectedST.id ? "Deleting..." : "Delete Session"}</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -597,6 +726,73 @@ export function StockTakesView() {
                 </button>
               </div>
             </div>
+
+            {/* Quick Assignment Card */}
+            {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
+              <div className="mt-6 rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white p-4 shadow-xs">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-rose-600">
+                      Quick assignment
+                    </p>
+                    <h3 className="mt-1 text-sm font-bold text-slate-900">
+                      Assign a stock taker to any unassigned location
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-600">
+                        Location
+                      </label>
+                      <select
+                        value={quickAssignLocationId}
+                        onChange={(e) => setQuickAssignLocationId(e.target.value)}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-rose-500 focus:outline-hidden"
+                      >
+                        <option value="">Select a location</option>
+                        {stLocations
+                          .filter((loc) => !loc.assignedUserId)
+                          .map((loc) => (
+                            <option key={loc.id} value={loc.id}>
+                              {loc.locationCode} — {loc.locationName}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-600">
+                        Stock taker
+                      </label>
+                      <select
+                        value={quickAssignTakerId}
+                        onChange={(e) => setQuickAssignTakerId(e.target.value)}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-rose-500 focus:outline-hidden"
+                      >
+                        <option value="">Unassigned</option>
+                        {allStockTakers.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.fullName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={handleQuickAssignLocation}
+                        disabled={!quickAssignLocationId}
+                        className="w-full rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Assign Staff
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Sub Tabs */}
             <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
@@ -756,10 +952,50 @@ export function StockTakesView() {
           {/* TAB 3: COUNT LINES (Requirement 46) */}
           {activeTab === "counts" && (
             <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
+              <div className="flex items-center justify-between border-b border-slate-100 p-4">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Count Lines</h3>
+                  <p className="text-xs text-slate-500">Select rows to delete one or many count entries</p>
+                </div>
+                {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCountIds([])}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      Clear Selection
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCounts()}
+                      disabled={selectedCountIds.length === 0 || deletingCounts}
+                      className="rounded-lg bg-rose-600 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deletingCounts ? "Deleting..." : `Delete Selected (${selectedCountIds.length})`}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs text-slate-600">
                   <thead className="border-b border-slate-200 bg-slate-50 font-semibold text-slate-700">
                     <tr>
+                      {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
+                        <th className="px-4 py-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={stCounts.length > 0 && selectedCountIds.length === stCounts.length}
+                            onChange={() =>
+                              setSelectedCountIds(
+                                selectedCountIds.length === stCounts.length ? [] : stCounts.map((c) => c.id)
+                              )
+                            }
+                            className="h-3.5 w-3.5 rounded border-slate-300 text-rose-600"
+                          />
+                        </th>
+                      )}
                       <th className="px-4 py-3">Location</th>
                       <th className="px-4 py-3">Product Name</th>
                       <th className="px-4 py-3">Item Code</th>
@@ -770,18 +1006,31 @@ export function StockTakesView() {
                       <th className="px-4 py-3">Variance Value</th>
                       <th className="px-4 py-3">Stock Taker</th>
                       <th className="px-4 py-3">Status</th>
+                      {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
+                        <th className="px-4 py-3 text-right">Action</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {stCounts.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="py-8 text-center text-slate-400">
+                        <td colSpan={11} className="py-8 text-center text-slate-400">
                           No count lines recorded yet.
                         </td>
                       </tr>
                     ) : (
                       stCounts.map((c) => (
                         <tr key={c.id} className="hover:bg-slate-50">
+                          {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
+                            <td className="px-4 py-3 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedCountIds.includes(c.id)}
+                                onChange={() => toggleCountSelection(c.id)}
+                                className="h-3.5 w-3.5 rounded border-slate-300 text-rose-600"
+                              />
+                            </td>
+                          )}
                           <td className="px-4 py-3 font-mono font-semibold">{c.locationCode}</td>
                           <td className="px-4 py-3 font-semibold text-slate-900">{c.itemName}</td>
                           <td className="px-4 py-3 font-mono">{c.itemCode}</td>
@@ -816,6 +1065,18 @@ export function StockTakesView() {
                               {c.countStatus}
                             </span>
                           </td>
+                          {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCounts([c.id])}
+                                disabled={deletingCounts}
+                                className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))
                     )}
@@ -980,7 +1241,26 @@ export function StockTakesView() {
                 />
               </div>
 
-              <div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block font-semibold text-slate-700">Store</label>
+                  <select
+                    value={newSTStoreId}
+                    onChange={(e) => setNewSTStoreId(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500"
+                  >
+                    {availableStores.length === 0 ? (
+                      <option value="">No stores available</option>
+                    ) : (
+                      availableStores.map((store) => (
+                        <option key={store.id} value={store.id}>
+                          {store.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block font-semibold text-slate-700">Stock Take Type</label>
                   <select
@@ -994,6 +1274,17 @@ export function StockTakesView() {
                     <option value="CYCLE_COUNT">Cycle Count</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700">Custom Store Name</label>
+                <input
+                  type="text"
+                  value={newSTStoreName}
+                  onChange={(e) => setNewSTStoreName(e.target.value)}
+                  placeholder="Enter store name for this stock take"
+                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500 focus:outline-hidden"
+                />
               </div>
 
               {/* Control Rules */}

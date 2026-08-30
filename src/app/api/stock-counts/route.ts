@@ -361,6 +361,68 @@ export async function POST(req: Request) {
   }
 }
 
+export async function DELETE(req: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { countIds, stockTakeId } = body || {};
+
+    if (!Array.isArray(countIds) || countIds.length === 0) {
+      return NextResponse.json({ error: "At least one count must be selected for deletion" }, { status: 400 });
+    }
+
+    if (!user.role || !["ADMINISTRATOR", "SUPERVISOR"].includes(user.role)) {
+      return NextResponse.json({ error: "Forbidden: only administrators or supervisors can delete count lines" }, { status: 403 });
+    }
+
+    const rows = await db
+      .select({ id: stockCounts.id, stockTakeId: stockCounts.stockTakeId, itemId: stockCounts.itemId })
+      .from(stockCounts)
+      .where(sql`${stockCounts.id} IN (${sql.join(countIds.map((id: string) => sql`${id}`), sql`, `)})`);
+
+    if (rows.length === 0) {
+      return NextResponse.json({ error: "No matching count records found" }, { status: 404 });
+    }
+
+    const deleted = await db
+      .delete(stockCounts)
+      .where(sql`${stockCounts.id} IN (${sql.join(countIds.map((id: string) => sql`${id}`), sql`, `)})`)
+      .returning({ id: stockCounts.id });
+
+    if (stockTakeId) {
+      const remaining = await db.select({ count: sql<number>`cast(count(*) as integer)` }).from(stockCounts).where(eq(stockCounts.stockTakeId, stockTakeId));
+      await db
+        .update(stockTakeLocations)
+        .set({
+          countedItemsCount: Math.max(0, Number(remaining[0]?.count || 0)),
+          updatedAt: new Date(),
+        })
+        .where(eq(stockTakeLocations.stockTakeId, stockTakeId));
+    }
+
+    await logAudit({
+      userId: user.id,
+      userName: user.fullName,
+      userRole: user.role,
+      action: "COUNT_DELETE",
+      entityType: "STOCK_COUNT",
+      entityId: rows[0]?.id || null,
+      previousValue: { deletedCount: rows.length },
+      newValue: { deletedCount: deleted.length },
+      reason: `Deleted ${deleted.length} count line(s)`,
+    });
+
+    return NextResponse.json({ success: true, deletedCount: deleted.length });
+  } catch (error) {
+    console.error("Bulk count delete error:", error);
+    return NextResponse.json({ error: "Failed to delete selected count lines" }, { status: 500 });
+  }
+}
+
 export async function PUT(req: Request) {
   try {
     const user = await getCurrentUser();

@@ -78,6 +78,50 @@ export async function GET() {
   }
 }
 
+export async function DELETE(req: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!hasPermission(user.role, "MANAGE_STOCK_TAKES")) {
+      return NextResponse.json({ error: "Forbidden: Only administrators can delete stock take sessions" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { stockTakeId } = body || {};
+
+    if (!stockTakeId) {
+      return NextResponse.json({ error: "stockTakeId is required" }, { status: 400 });
+    }
+
+    const existing = await db.select().from(stockTakes).where(eq(stockTakes.id, stockTakeId)).limit(1);
+    if (existing.length === 0) {
+      return NextResponse.json({ error: "Stock take not found" }, { status: 404 });
+    }
+
+    const deleted = await db.delete(stockTakes).where(eq(stockTakes.id, stockTakeId)).returning({ id: stockTakes.id });
+
+    await logAudit({
+      userId: user.id,
+      userName: user.fullName,
+      userRole: user.role,
+      action: "STOCK_TAKE_DELETE",
+      entityType: "STOCK_TAKE",
+      entityId: stockTakeId,
+      previousValue: { name: existing[0].name, status: existing[0].status },
+      newValue: { deleted: true },
+      reason: `Deleted stock take session ${existing[0].stockTakeNumber}`,
+    });
+
+    return NextResponse.json({ success: true, deletedCount: deleted.length });
+  } catch (error) {
+    console.error("Stock take delete error:", error);
+    return NextResponse.json({ error: "Failed to delete stock take session" }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
@@ -93,6 +137,8 @@ export async function POST(req: Request) {
     const {
       name,
       storeId,
+      storeName,
+      storeCode,
       type = "FULL",
       startDate,
       plannedEndDate,
@@ -110,6 +156,37 @@ export async function POST(req: Request) {
     if (!name?.trim()) {
       return NextResponse.json({ error: "Stock Take Name is required" }, { status: 400 });
     }
+
+    let resolvedStoreId = storeId || null;
+    const trimmedStoreName = typeof storeName === "string" ? storeName.trim() : "";
+
+    if (!resolvedStoreId && trimmedStoreName) {
+      const existingStore = await db
+        .select()
+        .from(stores)
+        .where(eq(stores.name, trimmedStoreName))
+        .limit(1);
+
+      if (existingStore.length > 0) {
+        resolvedStoreId = existingStore[0].id;
+      } else {
+        const generatedCode = (storeCode || trimmedStoreName).toString().trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 20) || `STORE-${Date.now()}`;
+        const insertedStore = await db
+          .insert(stores)
+          .values({
+            code: generatedCode.toUpperCase(),
+            name: trimmedStoreName,
+            address: null,
+            phone: null,
+            managerName: null,
+          })
+          .returning({ id: stores.id });
+
+        if (insertedStore[0]) {
+          resolvedStoreId = insertedStore[0].id;
+        }
+      }
+    }
     // Generate reference number ST-YYYY-XXXXX
     const year = new Date().getFullYear();
     const countResult = await db
@@ -123,7 +200,7 @@ export async function POST(req: Request) {
       .values({
         stockTakeNumber,
         name: name.trim(),
-        storeId: storeId || null,
+        storeId: resolvedStoreId,
         type,
         status: "PLANNED",
         startDate: startDate ? new Date(startDate) : new Date(),

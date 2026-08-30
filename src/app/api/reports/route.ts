@@ -174,10 +174,66 @@ export async function GET(req: Request) {
         .where(and(eq(stockCounts.stockTakeId, targetSTId), sql`${stockCounts.varianceQuantity} != 0`))
         .orderBy(desc(sql`abs(${stockCounts.varianceValue})`));
 
+      // Group by item and calculate totals
+      const itemVarianceMap = new Map<
+        string,
+        {
+          itemName: string;
+          itemCode: string;
+          eanCode: string;
+          costPrice: string;
+          totalCounts: number;
+          totalSystemStock: number;
+          totalPhysicalStock: number;
+          totalVarianceQty: number;
+          totalVarianceValue: number;
+          varianceRecords: typeof variances;
+        }
+      >();
+
+      for (const v of variances) {
+        const key = String(v.itemCode);
+        if (itemVarianceMap.has(key)) {
+          const existing = itemVarianceMap.get(key)!;
+          existing.totalCounts += 1;
+          existing.totalSystemStock += Number(v.systemStock || 0);
+          existing.totalPhysicalStock += Number(v.physicalStock || 0);
+          existing.totalVarianceQty += Number(v.varianceQty);
+          existing.totalVarianceValue += Number(v.varianceValue || 0);
+          existing.varianceRecords.push(v);
+        } else {
+          itemVarianceMap.set(key, {
+            itemName: String(v.itemName),
+            itemCode: String(v.itemCode),
+            eanCode: String(v.eanCode),
+            costPrice: String(v.costPrice),
+            totalCounts: 1,
+            totalSystemStock: Number(v.systemStock || 0),
+            totalPhysicalStock: Number(v.physicalStock || 0),
+            totalVarianceQty: Number(v.varianceQty),
+            totalVarianceValue: Number(v.varianceValue || 0),
+            varianceRecords: [v],
+          });
+        }
+      }
+
+      // Convert map to array with aggregated data
+      const aggregatedVariances = Array.from(itemVarianceMap.values()).map((item) => ({
+        itemName: item.itemName,
+        itemCode: item.itemCode,
+        eanCode: item.eanCode,
+        costPrice: item.costPrice,
+        totalCounts: item.totalCounts,
+        totalSystemStock: item.totalSystemStock,
+        totalPhysicalStock: item.totalPhysicalStock,
+        totalVarianceQty: item.totalVarianceQty,
+        totalVarianceValue: item.totalVarianceValue.toFixed(2),
+      }));
+
       return NextResponse.json({
         reportType: "VARIANCE",
         stockTake: stInfo,
-        rows: variances,
+        rows: aggregatedVariances,
       });
     }
 

@@ -227,7 +227,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Select at least one item to delete" }, { status: 400 });
     }
 
-    const condition = deleteAll ? undefined : sql`${items.id} in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`;
+    const condition = deleteAll ? undefined : sql`${items.id} in (${sql.join(ids.map((id: string) => sql`${id}`), sql`, `)})`;
     const deleted = await db.delete(items).where(condition).returning({ id: items.id });
 
     await logAudit({

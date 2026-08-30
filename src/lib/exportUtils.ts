@@ -28,11 +28,11 @@ export function exportDetailedPDF(options: {
   doc.setFillColor(30, 41, 59); // Slate-800
   doc.rect(0, 0, 297, 28, "F");
 
-  // Supermarket Brand Tag
+  // Session / report title tag
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("METRO GRAND HYPERMARKET", 14, 12);
+  doc.text(String(options.storeName || "STOCK TAKE REPORT").toUpperCase(), 14, 12);
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
