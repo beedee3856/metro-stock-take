@@ -223,11 +223,9 @@ export async function GET(req: Request) {
         itemCode: item.itemCode,
         eanCode: item.eanCode,
         costPrice: item.costPrice,
-        totalCountRecords: item.totalCounts,
         locationsCount: item.totalCounts,
         totalSystemStock: item.totalSystemStock,
         totalPhysicalStock: item.totalPhysicalStock,
-        totalCountedUnits: item.totalPhysicalStock,
         totalVarianceQty: item.totalVarianceQty,
         totalVarianceValue: item.totalVarianceValue.toFixed(2),
       }));

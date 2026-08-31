@@ -12,6 +12,7 @@ import {
   X,
   MapPin,
   Package,
+  Clock,
 } from "lucide-react";
 
 interface RecountItem {
@@ -56,6 +57,16 @@ export function RecountsView() {
   const [acceptVerifiedItem, setAcceptVerifiedItem] = useState<RecountItem | null>(null);
   const [verificationNotes, setVerificationNotes] = useState("");
   const [acceptingVerified, setAcceptingVerified] = useState(false);
+
+  // Approve Recount Modal
+  const [approveRecountItem, setApproveRecountItem] = useState<RecountItem | null>(null);
+  const [approvalNotes, setApprovalNotes] = useState("");
+  const [approvingRecount, setApprovingRecount] = useState(false);
+
+  // Reject Recount Modal
+  const [rejectRecountItem, setRejectRecountItem] = useState<RecountItem | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectingRecount, setRejectingRecount] = useState(false);
 
   const fetchRecounts = async () => {
     try {
@@ -170,6 +181,74 @@ export function RecountsView() {
     }
   };
 
+  const handleApproveRecount = (r: RecountItem) => {
+    setApproveRecountItem(r);
+    setApprovalNotes("");
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!approveRecountItem) return;
+
+    try {
+      setApprovingRecount(true);
+      const res = await fetch("/api/recounts/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recountId: approveRecountItem.id,
+          approvalNotes,
+        }),
+      });
+
+      if (res.ok) {
+        setApproveRecountItem(null);
+        setApprovalNotes("");
+        fetchRecounts();
+      } else {
+        const err = await res.json();
+        console.error("Approval failed:", err);
+      }
+    } catch (err) {
+      console.error("Failed to approve recount", err);
+    } finally {
+      setApprovingRecount(false);
+    }
+  };
+
+  const handleRejectRecount = (r: RecountItem) => {
+    setRejectRecountItem(r);
+    setRejectionReason("");
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectRecountItem) return;
+
+    try {
+      setRejectingRecount(true);
+      const res = await fetch("/api/recounts/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recountId: rejectRecountItem.id,
+          rejectionReason,
+        }),
+      });
+
+      if (res.ok) {
+        setRejectRecountItem(null);
+        setRejectionReason("");
+        fetchRecounts();
+      } else {
+        const err = await res.json();
+        console.error("Rejection failed:", err);
+      }
+    } catch (err) {
+      console.error("Failed to reject recount", err);
+    } finally {
+      setRejectingRecount(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Top Header */}
@@ -183,7 +262,7 @@ export function RecountsView() {
 
         {/* Filter Pills */}
         <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-1 shadow-xs text-xs">
-          {["ALL", "PENDING", "COMPLETED"].map((st) => (
+          {["ALL", "PENDING", "COMPLETED", "APPROVED"].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -194,6 +273,15 @@ export function RecountsView() {
               {st}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Auto-Complete Info Banner */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 flex gap-2">
+        <Clock className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="text-xs font-semibold text-blue-900">Auto-Detection Active</p>
+          <p className="text-xs text-blue-800">When a stock taker closes and submits a location for counting, pending recounts for that location are automatically detected and marked as COMPLETED with the counted quantities.</p>
         </div>
       </div>
 
@@ -265,15 +353,27 @@ export function RecountsView() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                          r.status === "COMPLETED" || r.status === "ACCEPTED_VERIFIED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-rose-100 text-rose-800"
-                        }`}
-                      >
-                        {r.status}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                            r.status === "APPROVED"
+                              ? "bg-green-100 text-green-800"
+                              : r.status === "COMPLETED" || r.status === "ACCEPTED_VERIFIED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : r.status === "IN_PROGRESS"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-rose-100 text-rose-800"
+                          }`}
+                        >
+                          {r.status}
+                        </span>
+                        {r.status === "COMPLETED" && r.recountPhysicalQty !== null && r.recountPhysicalQty !== undefined && (
+                          <span className="flex items-center gap-1 text-[9px] text-slate-500 italic">
+                            <Clock className="h-2.5 w-2.5" />
+                            Auto-detected from location
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       {r.status === "PENDING" && (
@@ -285,12 +385,27 @@ export function RecountsView() {
                         </button>
                       )}
                       {r.status === "COMPLETED" && (
-                        <button
-                          onClick={() => handleAcceptVerified(r)}
-                          className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-emerald-700"
-                        >
-                          Accept Verified
-                        </button>
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => handleApproveRecount(r)}
+                            className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-emerald-700"
+                          >
+                            <Check className="h-3.5 w-3.5 inline mr-1" />
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRejectRecount(r)}
+                            className="rounded-lg bg-rose-600 px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-rose-700"
+                          >
+                            <X className="h-3.5 w-3.5 inline mr-1" />
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                      {r.status === "APPROVED" && (
+                        <span className="rounded-lg bg-green-100 px-3 py-1 text-xs font-bold text-green-800">
+                          ✓ Approved
+                        </span>
                       )}
                       {(r.status === "ASSIGNED" || r.status === "IN_PROGRESS") && (
                         <span className="text-xs text-slate-500 italic">
@@ -487,6 +602,141 @@ export function RecountsView() {
                 className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {acceptingVerified ? "Accepting..." : "Accept Verified"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* APPROVE RECOUNT MODAL */}
+      {approveRecountItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+
+            <h3 className="mt-3 text-base font-bold text-slate-900">Approve Recount</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Item: <strong>{approveRecountItem.itemName}</strong> ({approveRecountItem.locationCode})
+            </p>
+
+            <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs space-y-1.5 border border-slate-200">
+              <div className="flex justify-between">
+                <span className="text-slate-600">System Quantity:</span>
+                <strong className="text-slate-900">{approveRecountItem.systemQty} units</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">1st Count:</span>
+                <strong className="text-slate-900">{approveRecountItem.originalPhysicalQty} units</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">2nd Recount:</span>
+                <strong className="text-emerald-600">{approveRecountItem.recountPhysicalQty} units</strong>
+              </div>
+              <div className="flex justify-between border-t pt-1.5 mt-1.5">
+                <span className="text-slate-600">Final Quantity:</span>
+                <strong className="text-emerald-700">{approveRecountItem.finalQuantity} units</strong>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg bg-emerald-50 p-2.5 border border-emerald-200 text-xs text-emerald-900">
+              <p className="font-semibold">✓ Ready to approve</p>
+              <p className="text-emerald-800 mt-1">The recount has been completed and verified by the stock taker.</p>
+            </div>
+
+            <div className="mt-4">
+              <label className="block font-semibold text-slate-700 text-xs">Approval Notes (Optional)</label>
+              <textarea
+                rows={2}
+                value={approvalNotes}
+                onChange={(e) => setApprovalNotes(e.target.value)}
+                placeholder="e.g. Recount verified and approved. Final count accepted..."
+                className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setApproveRecountItem(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmApprove}
+                disabled={approvingRecount}
+                className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {approvingRecount ? "Approving..." : "Approve Recount"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REJECT RECOUNT MODAL */}
+      {rejectRecountItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+
+            <h3 className="mt-3 text-base font-bold text-slate-900">Reject & Resend Recount</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Item: <strong>{rejectRecountItem.itemName}</strong> ({rejectRecountItem.locationCode})
+            </p>
+
+            <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs space-y-1.5 border border-slate-200">
+              <div className="flex justify-between">
+                <span className="text-slate-600">System Quantity:</span>
+                <strong className="text-slate-900">{rejectRecountItem.systemQty} units</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">1st Count:</span>
+                <strong className="text-slate-900">{rejectRecountItem.originalPhysicalQty} units</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">2nd Recount:</span>
+                <strong className="text-rose-600">{rejectRecountItem.recountPhysicalQty} units</strong>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg bg-rose-50 p-2.5 border border-rose-200 text-xs text-rose-900">
+              <p className="font-semibold">⚠ This recount will be rejected</p>
+              <p className="text-rose-800 mt-1">It will be sent back to the stock taker for re-verification.</p>
+            </div>
+
+            <div className="mt-4">
+              <label className="block font-semibold text-slate-700 text-xs">Reason for Rejection *</label>
+              <textarea
+                rows={3}
+                required
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="e.g. Count appears incorrect based on system records. Please recount carefully and verify the physical inventory..."
+                className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRejectRecountItem(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={rejectingRecount || !rejectionReason.trim()}
+                className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+              >
+                {rejectingRecount ? "Rejecting..." : "Reject & Resend"}
               </button>
             </div>
           </div>

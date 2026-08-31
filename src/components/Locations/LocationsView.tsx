@@ -12,7 +12,6 @@ import {
   Printer,
   X,
   CheckCircle,
-  Edit2,
 } from "lucide-react";
 
 interface LocationItem {
@@ -36,7 +35,6 @@ export function LocationsView() {
 
   // Create Modal
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [editingLocation, setEditingLocation] = useState<LocationItem | null>(null);
   const [locationCode, setLocationCode] = useState("");
   const [locationName, setLocationName] = useState("");
   const [aisle, setAisle] = useState("");
@@ -66,37 +64,14 @@ export function LocationsView() {
     fetchLocations();
   }, [searchQuery]);
 
-  const handleOpenCreate = () => {
-    setEditingLocation(null);
-    setLocationCode("");
-    setLocationName("");
-    setAisle("");
-    setShelfSection("");
-    setDescription("");
-    setCreateModalOpen(true);
-  };
-
-  const handleOpenEdit = (location: LocationItem) => {
-    setEditingLocation(location);
-    setLocationCode(location.locationCode);
-    setLocationName(location.locationName);
-    setAisle(location.aisle || "");
-    setShelfSection(location.shelfSection || "");
-    setDescription(location.description || "");
-    setCreateModalOpen(true);
-  };
-
   const handleCreateLocation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!locationCode.trim() || !locationName.trim()) return;
 
     try {
       setSaving(true);
-      const url = editingLocation ? `/api/locations?id=${editingLocation.id}` : "/api/locations";
-      const method = editingLocation ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
+      const res = await fetch("/api/locations", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           locationCode,
@@ -109,7 +84,6 @@ export function LocationsView() {
 
       if (res.ok) {
         setCreateModalOpen(false);
-        setEditingLocation(null);
         setLocationCode("");
         setLocationName("");
         setAisle("");
@@ -118,7 +92,7 @@ export function LocationsView() {
         fetchLocations();
       }
     } catch (err) {
-      console.error("Failed to save location", err);
+      console.error("Failed to create location", err);
     } finally {
       setSaving(false);
     }
@@ -137,7 +111,7 @@ export function LocationsView() {
 
         {user?.role === "ADMINISTRATOR" && (
           <button
-            onClick={handleOpenCreate}
+            onClick={() => setCreateModalOpen(true)}
             className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 active:scale-98 transition-all"
           >
             <Plus className="h-4 w-4" />
@@ -205,23 +179,14 @@ export function LocationsView() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenEdit(loc)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold"
-                        >
-                          <Edit2 className="h-3.5 w-3.5 text-slate-500" />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          onClick={() => setPrintTagLoc(loc)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold"
-                          title="Print Barcode Tag"
-                        >
-                          <Printer className="h-3.5 w-3.5 text-rose-600" />
-                          <span>Print Tag</span>
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setPrintTagLoc(loc)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold"
+                        title="Print Barcode Tag"
+                      >
+                        <Printer className="h-3.5 w-3.5 text-rose-600" />
+                        <span>Print Tag</span>
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -231,14 +196,12 @@ export function LocationsView() {
         </div>
       </div>
 
-      {/* CREATE / EDIT LOCATION MODAL */}
+      {/* CREATE LOCATION MODAL */}
       {createModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">
-                {editingLocation ? "Edit Location" : "Add New Location"}
-              </h3>
+              <h3 className="text-base font-bold text-slate-900">Add New Location</h3>
               <button onClick={() => setCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
@@ -250,11 +213,10 @@ export function LocationsView() {
                 <input
                   type="text"
                   required
-                  disabled={editingLocation !== null}
                   value={locationCode}
                   onChange={(e) => setLocationCode(e.target.value)}
                   placeholder="e.g. AISLE-09"
-                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500 font-mono disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500 font-mono"
                 />
               </div>
 
@@ -317,7 +279,7 @@ export function LocationsView() {
                   disabled={saving}
                   className="rounded-xl bg-rose-600 px-5 py-2 font-bold text-white hover:bg-rose-700 disabled:opacity-50"
                 >
-                  {saving ? "Saving..." : editingLocation ? "Update Location" : "Create Location"}
+                  {saving ? "Creating..." : "Create Location"}
                 </button>
               </div>
             </form>

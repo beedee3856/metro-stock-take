@@ -16,6 +16,55 @@ export async function GET(req: Request) {
     const stockTakeId = searchParams.get("stockTakeId");
     const status = searchParams.get("status");
 
+    // First, auto-complete any recounts whose locations have been closed
+    const incompleteRecounts = await db
+      .select({
+        recountId: recounts.id,
+        stockTakeLocationId: recounts.stockTakeLocationId,
+        itemId: recounts.itemId,
+        locationStatus: stockTakeLocations.status,
+        systemQty: recounts.systemQty,
+      })
+      .from(recounts)
+      .leftJoin(stockTakeLocations, eq(recounts.stockTakeLocationId, stockTakeLocations.id))
+      .where(eq(recounts.status, "IN_PROGRESS"));
+
+    const now = new Date();
+    for (const rec of incompleteRecounts) {
+      // If location has been submitted/closed and recount is still in progress, auto-mark as COMPLETED
+      if (rec.locationStatus && ["SUBMITTED", "UNDER_REVIEW", "APPROVED", "COMPLETED"].includes(rec.locationStatus)) {
+        // Get the stock count for this item to capture the actual recount quantity
+        const stockCountRows = await db
+          .select()
+          .from(stockCounts)
+          .where(
+            and(
+              eq(stockCounts.stockTakeLocationId, rec.stockTakeLocationId),
+              eq(stockCounts.itemId, rec.itemId)
+            )
+          )
+          .limit(1);
+
+        let recountQty = null;
+        let finalQty = null;
+        if (stockCountRows.length > 0) {
+          recountQty = stockCountRows[0].physicalQuantity;
+          finalQty = stockCountRows[0].physicalQuantity;
+        }
+
+        await db
+          .update(recounts)
+          .set({
+            status: "COMPLETED",
+            recountPhysicalQty: recountQty,
+            finalQuantity: finalQty,
+            difference: recountQty ? recountQty - rec.systemQty : null,
+            updatedAt: now,
+          })
+          .where(eq(recounts.id, rec.recountId));
+      }
+    }
+
     const conditions = [];
     if (stockTakeId) conditions.push(eq(recounts.stockTakeId, stockTakeId));
     if (status && status !== "ALL") conditions.push(eq(recounts.status, status));
