@@ -68,6 +68,11 @@ export async function GET(req: Request) {
     const conditions = [];
     if (stockTakeId) conditions.push(eq(recounts.stockTakeId, stockTakeId));
     if (status && status !== "ALL") conditions.push(eq(recounts.status, status));
+    
+    // If user is a stock taker, only show recounts assigned to them
+    if (user.role === "STOCK_TAKER") {
+      conditions.push(eq(recounts.assignedTo, user.id));
+    }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 

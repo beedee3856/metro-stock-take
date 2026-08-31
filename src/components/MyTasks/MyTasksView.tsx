@@ -13,6 +13,8 @@ import {
   Send,
   AlertTriangle,
   CheckCircle2,
+  RotateCcw,
+  Play,
 } from "lucide-react";
 import { NavSection } from "../Navigation/Sidebar";
 
@@ -33,6 +35,21 @@ interface TaskItem {
   status: string;
 }
 
+interface RecountItem {
+  id: string;
+  stockTakeId: string;
+  stockTakeLocationId: string;
+  itemId: string;
+  itemName: string;
+  itemCode: string;
+  locationCode: string;
+  systemQty: number;
+  originalPhysicalQty: number;
+  reason: string;
+  status: string;
+  createdAt: string;
+}
+
 interface MyTasksViewProps {
   onSelectSection: (section: NavSection) => void;
 }
@@ -40,7 +57,11 @@ interface MyTasksViewProps {
 export function MyTasksView({ onSelectSection }: MyTasksViewProps) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [recounts, setRecounts] = useState<RecountItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRecounts, setLoadingRecounts] = useState(false);
+  const [selectedRecount, setSelectedRecount] = useState<RecountItem | null>(null);
+  const [continueToTerminal, setContinueToTerminal] = useState(false);
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [selectedTaskToClose, setSelectedTaskToClose] = useState<TaskItem | null>(null);
   const [closingSummary, setClosingSummary] = useState<{
@@ -63,6 +84,21 @@ export function MyTasksView({ onSelectSection }: MyTasksViewProps) {
       console.error("Failed to load tasks", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRecounts = async () => {
+    try {
+      setLoadingRecounts(true);
+      const res = await fetch("/api/recounts?status=IN_PROGRESS");
+      if (res.ok) {
+        const json = await res.json();
+        setRecounts(json.recounts || []);
+      }
+    } catch (err) {
+      console.error("Failed to load recounts", err);
+    } finally {
+      setLoadingRecounts(false);
     }
   };
 
@@ -112,8 +148,26 @@ export function MyTasksView({ onSelectSection }: MyTasksViewProps) {
     }
   };
 
+  const handleSelectRecount = (recount: RecountItem) => {
+    setSelectedRecount(recount);
+    // Store recount context in sessionStorage for the counting terminal to use
+    sessionStorage.setItem("selectedRecount", JSON.stringify(recount));
+  };
+
+  const handleContinueCounting = () => {
+    if (selectedRecount) {
+      onSelectSection("counting-terminal");
+    }
+  };
+
+  const handleCancelRecount = () => {
+    setSelectedRecount(null);
+    sessionStorage.removeItem("selectedRecount");
+  };
+
   useEffect(() => {
     fetchTasks();
+    fetchRecounts();
   }, []);
 
   return (
@@ -135,6 +189,90 @@ export function MyTasksView({ onSelectSection }: MyTasksViewProps) {
           <span>Refresh</span>
         </button>
       </div>
+
+      {/* Recounts Section */}
+      {selectedRecount ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-5 w-5 text-emerald-600" />
+                <h3 className="text-base font-bold text-slate-900">Recount Request Selected</h3>
+              </div>
+              <p className="mt-1 text-xs text-slate-600 mb-3">
+                Click "Continue Counting" to go to the counting terminal and recount this item.
+              </p>
+
+              <div className="rounded-lg bg-white p-3 space-y-2 text-xs border border-emerald-100 mb-4">
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-700">Item:</span>
+                  <span className="text-slate-900">{selectedRecount.itemName} ({selectedRecount.itemCode})</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-700">Location:</span>
+                  <span className="text-slate-900">{selectedRecount.locationCode}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-700">Reason:</span>
+                  <span className="text-slate-900">{selectedRecount.reason}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-700">Original Count:</span>
+                  <span className="text-slate-900">{selectedRecount.originalPhysicalQty} units</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleCancelRecount}
+              className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleContinueCounting}
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors"
+            >
+              <Play className="h-3.5 w-3.5" />
+              Continue Counting
+            </button>
+          </div>
+        </div>
+      ) : recounts.length > 0 ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <RotateCcw className="h-5 w-5 text-rose-600" />
+            <h3 className="text-base font-bold text-slate-900">Pending Recounts ({recounts.length})</h3>
+          </div>
+          <p className="text-xs text-slate-600 mb-3">
+            You have been assigned the following items that need to be recounted. Click on an item to continue counting.
+          </p>
+
+          <div className="space-y-2">
+            {recounts.map((rc) => (
+              <button
+                key={rc.id}
+                onClick={() => handleSelectRecount(rc)}
+                className="w-full text-left rounded-lg border border-rose-200 bg-white p-3 hover:bg-rose-50 hover:border-rose-300 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-slate-900 text-sm">
+                      {rc.itemName} <span className="text-slate-500 font-normal">({rc.itemCode})</span>
+                    </p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      <span className="font-medium">Location:</span> {rc.locationCode} | <span className="font-medium">Original:</span> {rc.originalPhysicalQty} units
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-rose-600 flex-shrink-0" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Task Cards Grid */}
       {loading ? (

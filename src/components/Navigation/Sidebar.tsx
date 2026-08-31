@@ -176,22 +176,24 @@ export function Sidebar({ activeSection, onSelectSection, isOpen, onCloseMobile 
                 <span>Stock Take Sessions</span>
               </button>
 
-              <button
-                onClick={() => handleNav("recounts")}
-                className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium transition-colors ${
-                  activeSection === "recounts"
-                    ? "bg-rose-600 text-white shadow-sm"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <RotateCcw className="h-4 w-4" />
-                  <span>Recounts Management</span>
-                </div>
-                <span className="rounded bg-rose-500/20 px-1.5 py-0.2 text-[10px] font-semibold text-rose-300">
-                  Review
-                </span>
-              </button>
+              {!isStockTaker && (
+                <button
+                  onClick={() => handleNav("recounts")}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium transition-colors ${
+                    activeSection === "recounts"
+                      ? "bg-rose-600 text-white shadow-sm"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <RotateCcw className="h-4 w-4" />
+                    <span>Recounts Management</span>
+                  </div>
+                  <span className="rounded bg-rose-500/20 px-1.5 py-0.2 text-[10px] font-semibold text-rose-300">
+                    Review
+                  </span>
+                </button>
+              )}
             </nav>
           </div>
 

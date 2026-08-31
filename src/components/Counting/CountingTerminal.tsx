@@ -99,6 +99,9 @@ export function CountingTerminal() {
   const [savingCount, setSavingCount] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" | "warning" } | null>(null);
 
+  // Recount context (from MyTasks selection)
+  const [recountContext, setRecountContext] = useState<any | null>(null);
+
   // Duplicate modal state
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<{
@@ -157,6 +160,28 @@ export function CountingTerminal() {
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  // Load recount context from sessionStorage if available
+  useEffect(() => {
+    const recount = sessionStorage.getItem("selectedRecount");
+    if (recount) {
+      try {
+        const recountData = JSON.parse(recount);
+        setRecountContext(recountData);
+        // Auto-select the task for this recount's location
+        if (tasks.length > 0) {
+          const matchingTask = tasks.find(
+            (t) => t.id === recountData.stockTakeLocationId
+          );
+          if (matchingTask) {
+            setSelectedTask(matchingTask);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load recount context", err);
+      }
+    }
+  }, [tasks]);
 
   // Fetch counts when selectedTask changes
   const fetchLocationCounts = useCallback(async () => {
@@ -484,6 +509,37 @@ export function CountingTerminal() {
 
   return (
     <div className="space-y-6">
+      {/* Recount Context Banner */}
+      {recountContext && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-xs">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 flex-shrink-0 mt-0.5">
+                <RotateCcw className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-emerald-900 uppercase tracking-wider mb-1">Recount Mode Active</p>
+                <div className="text-sm font-semibold text-slate-900">{recountContext.itemName}</div>
+                <div className="text-xs text-slate-600 mt-1">
+                  <span className="font-medium">Location:</span> {recountContext.locationCode} | 
+                  <span className="font-medium ml-1">Original Count:</span> {recountContext.originalPhysicalQty} units |
+                  <span className="font-medium ml-1">Reason:</span> {recountContext.reason}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setRecountContext(null);
+                sessionStorage.removeItem("selectedRecount");
+              }}
+              className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 px-3 py-1 rounded-lg hover:bg-emerald-100 transition-colors"
+            >
+              Cancel Recount
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Location Work Queue Selector Header */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
