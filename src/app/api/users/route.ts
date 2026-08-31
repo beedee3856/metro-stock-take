@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users, stores } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getCurrentUser, hasPermission, hashPassword } from "@/lib/auth";
+import { isPasswordStrong } from "@/lib/passwordValidation";
 import { logAudit } from "@/lib/audit";
 
 export async function GET() {
@@ -53,6 +54,16 @@ export async function POST(req: Request) {
 
     if (!username || !email || !password || !fullName || !role) {
       return NextResponse.json({ error: "Missing required user fields" }, { status: 400 });
+    }
+
+    // Validate password strength
+    if (!isPasswordStrong(password)) {
+      return NextResponse.json(
+        {
+          error: "Password does not meet security requirements. Password must contain at least: 8 characters, uppercase letter, lowercase letter, number, and special character (!@#$%^&*).",
+        },
+        { status: 400 }
+      );
     }
 
     const passwordHash = await hashPassword(password);
@@ -106,6 +117,18 @@ export async function PUT(req: Request) {
 
     if (!id) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+    }
+
+    // Validate new password strength if provided
+    if (newPassword && newPassword.trim()) {
+      if (!isPasswordStrong(newPassword.trim())) {
+        return NextResponse.json(
+          {
+            error: "New password does not meet security requirements. Password must contain at least: 8 characters, uppercase letter, lowercase letter, number, and special character (!@#$%^&*).",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const updateFields: Record<string, unknown> = { updatedAt: new Date() };

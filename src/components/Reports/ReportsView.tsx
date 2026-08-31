@@ -125,14 +125,14 @@ export function ReportsView() {
         ];
       });
     } else if (reportType === "VARIANCE" && Array.isArray(reportData.rows)) {
-      columns = ["Item Name", "Item Code", "EAN", "Total Counts", "System Stock", "Physical Stock", "Total Variance Qty", "Unit Cost (Ksh)", "Total Variance Value (Ksh)"];
+      columns = ["Item Name", "Item Code", "EAN", "Total System Stock", "Total Physical Counted", "Locations Counted", "Total Variance Qty", "Unit Cost (Ksh)", "Total Variance Value (Ksh)"];
       rows = (reportData.rows as Record<string, unknown>[]).map((r) => [
         String(r.itemName || ""),
         String(r.itemCode || ""),
         String(r.eanCode || ""),
-        String(r.totalCounts || 0),
         String(r.totalSystemStock || 0),
         String(r.totalPhysicalStock || 0),
+        String(r.locationsCount || 0),
         String(r.totalVarianceQty || 0),
         `Ksh ${r.costPrice || "0.00"}`,
         `Ksh ${r.totalVarianceValue || "0.00"}`,
@@ -404,9 +404,9 @@ export function ReportsView() {
                   <th className="px-3 py-2.5">Product Name</th>
                   <th className="px-3 py-2.5">Item Code</th>
                   <th className="px-3 py-2.5">EAN</th>
-                  <th className="px-3 py-2.5">Total Counts (All Locations)</th>
-                  <th className="px-3 py-2.5">System Stock</th>
-                  <th className="px-3 py-2.5">Physical Stock</th>
+                  <th className="px-3 py-2.5">Total System Stock</th>
+                  <th className="px-3 py-2.5">Total Physical Counted</th>
+                  <th className="px-3 py-2.5">Locations Counted</th>
                   <th className="px-3 py-2.5">Total Variance Qty</th>
                   <th className="px-3 py-2.5">Unit Cost</th>
                   <th className="px-3 py-2.5">Total Variance Value (Ksh)</th>
@@ -418,9 +418,9 @@ export function ReportsView() {
                     <td className="px-3 py-2 font-bold text-slate-900">{String(r.itemName || "")}</td>
                     <td className="px-3 py-2 font-mono">{String(r.itemCode || "")}</td>
                     <td className="px-3 py-2 font-mono text-slate-400">{String(r.eanCode || "")}</td>
-                    <td className="px-3 py-2 font-semibold text-center bg-slate-50 rounded">{String(r.totalCounts || 0)}</td>
-                    <td className="px-3 py-2 font-semibold text-center text-slate-900 bg-slate-50 rounded">{String(r.totalSystemStock || 0)}</td>
+                    <td className="px-3 py-2 font-semibold text-center bg-slate-50 rounded">{String(r.totalSystemStock || 0)}</td>
                     <td className="px-3 py-2 font-semibold text-center text-emerald-700 bg-emerald-50 rounded">{String(r.totalPhysicalStock || 0)}</td>
+                    <td className="px-3 py-2 font-semibold text-center bg-slate-50 rounded">{String(r.locationsCount || 0)}</td>
                     <td className="px-3 py-2 font-bold text-center">
                       <span className={Number(r.totalVarianceQty) > 0 ? "text-emerald-600" : "text-rose-600"}>
                         {Number(r.totalVarianceQty) > 0 ? `+${r.totalVarianceQty}` : String(r.totalVarianceQty || 0)}

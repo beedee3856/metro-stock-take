@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { validatePasswordStrength, type PasswordStrength } from "@/lib/passwordValidation";
 import {
   Users,
   UserPlus,
@@ -12,6 +13,7 @@ import {
   XCircle,
   X,
   Edit2,
+  AlertCircle,
 } from "lucide-react";
 
 interface UserItem {
@@ -44,6 +46,7 @@ export function UsersView() {
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -93,6 +96,24 @@ export function UsersView() {
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+
+    // Validate password strength for new users
+    if (!editUser && password) {
+      const strength = validatePasswordStrength(password);
+      if (strength.score < 4) {
+        setErrorMsg("Password does not meet security requirements. Please use a stronger password.");
+        return;
+      }
+    }
+
+    // For editing, only validate if password is being changed
+    if (editUser && password) {
+      const strength = validatePasswordStrength(password);
+      if (strength.score < 4) {
+        setErrorMsg("New password does not meet security requirements. Please use a stronger password.");
+        return;
+      }
+    }
 
     try {
       setSaving(true);
@@ -329,10 +350,121 @@ export function UsersView() {
                   type="password"
                   required={!editUser}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (e.target.value) {
+                      setPasswordStrength(validatePasswordStrength(e.target.value));
+                    } else {
+                      setPasswordStrength(null);
+                    }
+                  }}
                   placeholder={editUser ? "New password..." : "••••••••"}
                   className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-slate-900 focus:border-rose-500"
                 />
+
+                {/* Password Strength Indicator */}
+                {password && passwordStrength && (
+                  <div className="mt-3 space-y-2">
+                    {/* Strength Bar */}
+                    <div className="flex gap-1">
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-1.5 flex-1 rounded-full transition-colors ${
+                            i < passwordStrength.score
+                              ? passwordStrength.level === "WEAK"
+                                ? "bg-red-500"
+                                : passwordStrength.level === "FAIR"
+                                ? "bg-orange-500"
+                                : passwordStrength.level === "GOOD"
+                                ? "bg-yellow-500"
+                                : passwordStrength.level === "STRONG"
+                                ? "bg-emerald-500"
+                                : "bg-emerald-600"
+                              : "bg-slate-200"
+                          }`}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Strength Level & Message */}
+                    <div className="flex items-start gap-2">
+                      <div
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap ${
+                          passwordStrength.level === "WEAK"
+                            ? "bg-red-50 text-red-700"
+                            : passwordStrength.level === "FAIR"
+                            ? "bg-orange-50 text-orange-700"
+                            : passwordStrength.level === "GOOD"
+                            ? "bg-yellow-50 text-yellow-700"
+                            : passwordStrength.level === "STRONG"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-emerald-50 text-emerald-700"
+                        }`}
+                      >
+                        {passwordStrength.level === "VERY_STRONG" ? "VERY STRONG" : passwordStrength.level}
+                      </div>
+                      <p className="text-[11px] text-slate-600 flex-1">{passwordStrength.message}</p>
+                    </div>
+
+                    {/* Requirements Checklist */}
+                    <div className="space-y-1.5 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                      <p className="text-[10px] font-semibold text-slate-700 uppercase tracking-wider">Requirements:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center gap-1.5">
+                          {passwordStrength.meets.minLength ? (
+                            <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <AlertCircle className="h-3.5 w-3.5 text-slate-300" />
+                          )}
+                          <span className={`text-[10px] ${passwordStrength.meets.minLength ? "text-emerald-700 font-medium" : "text-slate-500"}`}>
+                            8+ characters
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {passwordStrength.meets.uppercase ? (
+                            <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <AlertCircle className="h-3.5 w-3.5 text-slate-300" />
+                          )}
+                          <span className={`text-[10px] ${passwordStrength.meets.uppercase ? "text-emerald-700 font-medium" : "text-slate-500"}`}>
+                            Uppercase (A-Z)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {passwordStrength.meets.lowercase ? (
+                            <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <AlertCircle className="h-3.5 w-3.5 text-slate-300" />
+                          )}
+                          <span className={`text-[10px] ${passwordStrength.meets.lowercase ? "text-emerald-700 font-medium" : "text-slate-500"}`}>
+                            Lowercase (a-z)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {passwordStrength.meets.numbers ? (
+                            <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <AlertCircle className="h-3.5 w-3.5 text-slate-300" />
+                          )}
+                          <span className={`text-[10px] ${passwordStrength.meets.numbers ? "text-emerald-700 font-medium" : "text-slate-500"}`}>
+                            Number (0-9)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 col-span-2">
+                          {passwordStrength.meets.special ? (
+                            <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <AlertCircle className="h-3.5 w-3.5 text-slate-300" />
+                          )}
+                          <span className={`text-[10px] ${passwordStrength.meets.special ? "text-emerald-700 font-medium" : "text-slate-500"}`}>
+                            Special character (!@#$%^&*)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

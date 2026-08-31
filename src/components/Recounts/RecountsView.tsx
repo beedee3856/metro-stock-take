@@ -77,7 +77,6 @@ export function RecountsView() {
   }, [statusFilter]);
 
   const handleOpenResolve = (r: RecountItem) => {
-    if (user?.role === "STOCK_TAKER") return;
     setResolveRecount(r);
     setSecondCountQty(r.originalPhysicalQty);
     setFinalQty(r.originalPhysicalQty);
@@ -85,7 +84,7 @@ export function RecountsView() {
   };
 
   const handleConfirmResolve = async () => {
-    if (!resolveRecount || user?.role === "STOCK_TAKER") return;
+    if (!resolveRecount) return;
 
     try {
       setResolving(true);
@@ -112,12 +111,11 @@ export function RecountsView() {
   };
 
   const handleSendRecount = (r: RecountItem) => {
-    if (user?.role === "STOCK_TAKER") return;
     setSendRecountItem(r);
   };
 
   const handleConfirmSendRecount = async () => {
-    if (!sendRecountItem || user?.role === "STOCK_TAKER") return;
+    if (!sendRecountItem) return;
 
     try {
       setSendingRecount(true);
@@ -143,13 +141,12 @@ export function RecountsView() {
   };
 
   const handleAcceptVerified = (r: RecountItem) => {
-    if (user?.role === "STOCK_TAKER") return;
     setAcceptVerifiedItem(r);
     setVerificationNotes("");
   };
 
   const handleConfirmAcceptVerified = async () => {
-    if (!acceptVerifiedItem || user?.role === "STOCK_TAKER") return;
+    if (!acceptVerifiedItem) return;
 
     try {
       setAcceptingVerified(true);
@@ -182,14 +179,6 @@ export function RecountsView() {
           <p className="text-xs text-slate-500">
             Audit and verify stock lines flagged for large variances, high-value discrepancies, or supervisor checks
           </p>
-          {user?.role === "STOCK_TAKER" && (
-            <div className="mt-2 flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800 border border-blue-200">
-              <AlertTriangle className="h-4 w-4" />
-              <span>
-                <strong>View Only:</strong> As a stock taker, you can view recounts but cannot manage or resolve them.
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Filter Pills */}
@@ -287,32 +276,26 @@ export function RecountsView() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {user?.role !== "STOCK_TAKER" ? (
-                        <>
-                          {r.status === "PENDING" && (
-                            <button
-                              onClick={() => handleSendRecount(r)}
-                              className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-blue-700"
-                            >
-                              Send Recount
-                            </button>
-                          )}
-                          {r.status === "COMPLETED" && (
-                            <button
-                              onClick={() => handleAcceptVerified(r)}
-                              className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-emerald-700"
-                            >
-                              Accept Verified
-                            </button>
-                          )}
-                          {(r.status === "ASSIGNED" || r.status === "IN_PROGRESS") && (
-                            <span className="text-xs text-slate-500 italic">
-                              Pending Stock Taker
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-xs text-slate-400 italic">View Only</span>
+                      {r.status === "PENDING" && (
+                        <button
+                          onClick={() => handleSendRecount(r)}
+                          className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-blue-700"
+                        >
+                          Send Recount
+                        </button>
+                      )}
+                      {r.status === "COMPLETED" && (
+                        <button
+                          onClick={() => handleAcceptVerified(r)}
+                          className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-emerald-700"
+                        >
+                          Accept Verified
+                        </button>
+                      )}
+                      {(r.status === "ASSIGNED" || r.status === "IN_PROGRESS") && (
+                        <span className="text-xs text-slate-500 italic">
+                          Pending Stock Taker
+                        </span>
                       )}
                     </td>
                   </tr>

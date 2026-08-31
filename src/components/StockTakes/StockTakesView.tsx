@@ -210,7 +210,7 @@ export function StockTakesView() {
 
   // Handle action buttons: Start, Pause, Resume, Lock, Unlock, Finalize
   const handleSessionAction = async (action: string, reason?: string) => {
-    if (!selectedST || user?.role === "STOCK_TAKER") return;
+    if (!selectedST) return;
     try {
       const res = await fetch(`/api/stock-takes/${selectedST.id}`, {
         method: "PATCH",
@@ -232,10 +232,6 @@ export function StockTakesView() {
   const handleCreateStockTake = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError("");
-    if (user?.role === "STOCK_TAKER") {
-      setCreateError("You do not have permission to create stock takes.");
-      return;
-    }
     if (!newSTName.trim()) {
       setCreateError("Session Name is required.");
       return;
@@ -281,7 +277,7 @@ export function StockTakesView() {
 
   // Assign Stock Taker to Location
   const handleAssignTaker = async () => {
-    if (!selectedST || !activeLocationToAssign || user?.role === "STOCK_TAKER") return;
+    if (!selectedST || !activeLocationToAssign) return;
 
     try {
       const res = await fetch(`/api/stock-takes/${selectedST.id}/assignments`, {
@@ -309,7 +305,7 @@ export function StockTakesView() {
   };
 
   const handleDeleteCounts = async (ids?: string[]) => {
-    if (!selectedST || user?.role === "STOCK_TAKER") return;
+    if (!selectedST) return;
     const countIds = ids && ids.length > 0 ? ids : selectedCountIds;
     if (countIds.length === 0) return;
 
@@ -334,7 +330,7 @@ export function StockTakesView() {
   };
 
   const handleDeleteSession = async (stockTakeId: string) => {
-    if (!stockTakeId || user?.role === "STOCK_TAKER") return;
+    if (!stockTakeId) return;
 
     const confirmed = window.confirm("Delete this stock take session? This cannot be undone.");
     if (!confirmed) return;
@@ -383,7 +379,7 @@ export function StockTakesView() {
 
   // Finalize Stock Take
   const handleFinalize = async () => {
-    if (!selectedST || user?.role === "STOCK_TAKER") return;
+    if (!selectedST) return;
 
     try {
       const res = await fetch(`/api/stock-takes/${selectedST.id}/finalize`, {
@@ -478,14 +474,6 @@ export function StockTakesView() {
               <p className="text-xs text-slate-500">
                 Plan, monitor, control, review and reconcile physical supermarket counts
               </p>
-              {user?.role === "STOCK_TAKER" && (
-                <div className="mt-2 flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800 border border-blue-200">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span>
-                    <strong>View Only:</strong> As a stock taker, you can view sessions but cannot create or manage them.
-                  </span>
-                </div>
-              )}
             </div>
 
             {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
@@ -617,84 +605,75 @@ export function StockTakesView() {
 
             {/* Session Control Buttons (Requirement 25) */}
             <div className="flex flex-wrap items-center gap-2">
-              {user?.role !== "STOCK_TAKER" ? (
-                <>
-                  {selectedST.status === "PLANNED" && (
-                    <button
-                      onClick={() => handleSessionAction("START")}
-                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-xs"
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                      <span>Start Counting</span>
-                    </button>
-                  )}
+              {selectedST.status === "PLANNED" && (
+                <button
+                  onClick={() => handleSessionAction("START")}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-xs"
+                >
+                  <Play className="h-3.5 w-3.5" />
+                  <span>Start Counting</span>
+                </button>
+              )}
 
-                  {selectedST.status === "IN_PROGRESS" && (
-                    <button
-                      onClick={() => handleSessionAction("PAUSE")}
-                      className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                    >
-                      <Pause className="h-3.5 w-3.5" />
-                      <span>Pause Session</span>
-                    </button>
-                  )}
+              {selectedST.status === "IN_PROGRESS" && (
+                <button
+                  onClick={() => handleSessionAction("PAUSE")}
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  <Pause className="h-3.5 w-3.5" />
+                  <span>Pause Session</span>
+                </button>
+              )}
 
-                  {selectedST.status === "REVIEW" && (
-                    <button
-                      onClick={() => handleSessionAction("RESUME")}
-                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700"
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                      <span>Resume Session</span>
-                    </button>
-                  )}
+              {selectedST.status === "REVIEW" && (
+                <button
+                  onClick={() => handleSessionAction("RESUME")}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                >
+                  <Play className="h-3.5 w-3.5" />
+                  <span>Resume Session</span>
+                </button>
+              )}
 
-                  {/* Lock / Unlock */}
-                  {selectedST.isLocked ? (
-                    <button
-                      onClick={() => setUnlockModalOpen(true)}
-                      className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
-                    >
-                      <Unlock className="h-3.5 w-3.5" />
-                      <span>Unlock Session</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleSessionAction("LOCK")}
-                      className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                    >
-                      <Lock className="h-3.5 w-3.5" />
-                      <span>Lock Session</span>
-                    </button>
-                  )}
-
-                  {/* Finalize Button */}
-                  {selectedST.status !== "FINALIZED" && user?.role === "ADMINISTRATOR" && (
-                    <button
-                      onClick={() => setFinalizeModalOpen(true)}
-                      className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>Finalize Stock Take</span>
-                    </button>
-                  )}
-
-                  {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
-                    <button
-                      onClick={() => handleDeleteSession(selectedST.id)}
-                      disabled={deletingSession === selectedST.id}
-                      className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      <span>{deletingSession === selectedST.id ? "Deleting..." : "Delete Session"}</span>
-                    </button>
-                  )}
-                </>
+              {/* Lock / Unlock */}
+              {selectedST.isLocked ? (
+                <button
+                  onClick={() => setUnlockModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
+                >
+                  <Unlock className="h-3.5 w-3.5" />
+                  <span>Unlock Session</span>
+                </button>
               ) : (
-                <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800 border border-blue-200">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span>View only - Session management restricted to supervisors</span>
-                </div>
+                <button
+                  onClick={() => handleSessionAction("LOCK")}
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>Lock Session</span>
+                </button>
+              )}
+
+              {/* Finalize Button */}
+              {selectedST.status !== "FINALIZED" && user?.role === "ADMINISTRATOR" && (
+                <button
+                  onClick={() => setFinalizeModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Finalize Stock Take</span>
+                </button>
+              )}
+
+              {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
+                <button
+                  onClick={() => handleDeleteSession(selectedST.id)}
+                  disabled={deletingSession === selectedST.id}
+                  className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>{deletingSession === selectedST.id ? "Deleting..." : "Delete Session"}</span>
+                </button>
               )}
             </div>
           </div>
