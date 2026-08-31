@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     if (!isPasswordStrong(password)) {
       return NextResponse.json(
         {
-          error: "Password does not meet security requirements. Password must contain at least: 8 characters, uppercase letter, lowercase letter, number, and special character (!@#$%^&*).",
+          error: "Password does not meet requirements. Must contain ALL of the following: 8+ characters, uppercase letter, lowercase letter, number, and special character (!@#$%^&*).",
         },
         { status: 400 }
       );
@@ -124,7 +124,7 @@ export async function PUT(req: Request) {
       if (!isPasswordStrong(newPassword.trim())) {
         return NextResponse.json(
           {
-            error: "New password does not meet security requirements. Password must contain at least: 8 characters, uppercase letter, lowercase letter, number, and special character (!@#$%^&*).",
+            error: "New password does not meet requirements. Must contain ALL of the following: 8+ characters, uppercase letter, lowercase letter, number, and special character (!@#$%^&*).",
           },
           { status: 400 }
         );

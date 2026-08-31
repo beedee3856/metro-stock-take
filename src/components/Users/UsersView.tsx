@@ -97,20 +97,26 @@ export function UsersView() {
     e.preventDefault();
     setErrorMsg("");
 
-    // Validate password strength for new users
-    if (!editUser && password) {
+    // For new users, password is REQUIRED and must be strong
+    if (!editUser) {
+      if (!password || password.trim().length === 0) {
+        setErrorMsg("Password is required to create a new user.");
+        return;
+      }
       const strength = validatePasswordStrength(password);
-      if (strength.score < 4) {
-        setErrorMsg("Password does not meet security requirements. Please use a stronger password.");
+      // Require ALL 5 criteria: 8+ chars, uppercase, lowercase, number, special
+      if (!strength.meets.minLength || !strength.meets.uppercase || !strength.meets.lowercase || !strength.meets.numbers || !strength.meets.special) {
+        setErrorMsg("Password must meet ALL requirements: 8+ characters, uppercase letter, lowercase letter, number, and special character (!@#$%^&*).");
         return;
       }
     }
 
-    // For editing, only validate if password is being changed
-    if (editUser && password) {
+    // For editing, password change is optional but if provided must be strong
+    if (editUser && password && password.trim().length > 0) {
       const strength = validatePasswordStrength(password);
-      if (strength.score < 4) {
-        setErrorMsg("New password does not meet security requirements. Please use a stronger password.");
+      // Require ALL 5 criteria: 8+ chars, uppercase, lowercase, number, special
+      if (!strength.meets.minLength || !strength.meets.uppercase || !strength.meets.lowercase || !strength.meets.numbers || !strength.meets.special) {
+        setErrorMsg("New password must meet ALL requirements: 8+ characters, uppercase letter, lowercase letter, number, and special character (!@#$%^&*).");
         return;
       }
     }

@@ -64,6 +64,10 @@ export function validatePasswordStrength(password: string): PasswordStrength {
 
 export function isPasswordStrong(password: string): boolean {
   const strength = validatePasswordStrength(password);
-  // Require at least STRONG (score 4)
-  return strength.score >= 4;
+  // Require ALL 5 criteria to be met for a strong password
+  return strength.meets.minLength && 
+         strength.meets.uppercase && 
+         strength.meets.lowercase && 
+         strength.meets.numbers && 
+         strength.meets.special;
 }
