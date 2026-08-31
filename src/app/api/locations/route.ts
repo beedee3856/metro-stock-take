@@ -186,7 +186,7 @@ export async function PUT(req: Request) {
       action: "LOCATION_UPDATE",
       entityType: "LOCATION",
       entityId: locationId,
-      oldValue: { name: existing[0].locationName, code: existing[0].locationCode },
+      previousValue: { name: existing[0].locationName, code: existing[0].locationCode },
       newValue: { name: locationName, code: locationCode },
     });
 
