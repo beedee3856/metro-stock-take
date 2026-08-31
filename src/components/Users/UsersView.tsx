@@ -242,7 +242,7 @@ export function UsersView() {
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600">
-            <thead className="border-b border-slate-200 bg-slate-50 font-semibold text-slate-700">
+            <thead className="border-b border-slate-200 bg-slate-50 font-semibold text-slate-700 sticky top-0">
               <tr>
                 <th className="px-4 py-3">Full Name</th>
                 <th className="px-4 py-3">Username</th>
@@ -251,7 +251,7 @@ export function UsersView() {
                 <th className="px-4 py-3">Store Branch</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Last Login</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 text-right sticky right-0 bg-slate-50">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -305,11 +305,11 @@ export function UsersView() {
                     <td className="px-4 py-3 text-slate-400 text-[11px]">
                       {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right sticky right-0 bg-white border-l border-slate-100">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleOpenEdit(u)}
-                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 shadow-xs whitespace-nowrap"
                         >
                           <Edit2 className="h-3.5 w-3.5 inline mr-1 text-slate-500" />
                           Edit
@@ -319,7 +319,7 @@ export function UsersView() {
                             setUserToDelete(u);
                             setDeleteModalOpen(true);
                           }}
-                          className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 shadow-xs"
+                          className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 shadow-xs whitespace-nowrap"
                         >
                           <Trash2 className="h-3.5 w-3.5 inline mr-1 text-rose-500" />
                           Delete
@@ -328,6 +328,11 @@ export function UsersView() {
                     </td>
                   </tr>
                 ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
               )}
             </tbody>
           </table>
