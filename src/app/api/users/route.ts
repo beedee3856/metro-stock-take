@@ -198,7 +198,7 @@ export async function DELETE(req: Request) {
       action: "USER_DELETE",
       entityType: "USER",
       entityId: userId,
-      oldValue: { username: deletedUser[0].username, role: deletedUser[0].role, fullName: deletedUser[0].fullName },
+      previousValue: { username: deletedUser[0].username, role: deletedUser[0].role, fullName: deletedUser[0].fullName },
     });
 
     return NextResponse.json({ success: true, message: "User deleted successfully" });
