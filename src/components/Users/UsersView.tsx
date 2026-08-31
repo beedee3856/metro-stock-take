@@ -14,6 +14,7 @@ import {
   X,
   Edit2,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 
 interface UserItem {
@@ -47,6 +48,11 @@ export function UsersView() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength | null>(null);
+
+  // Delete User Modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchUsers = async () => {
     try {
@@ -167,6 +173,32 @@ export function UsersView() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      setDeleting(true);
+      const res = await fetch(`/api/users?id=${userToDelete.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.error || "Failed to delete user");
+        return;
+      }
+
+      setDeleteModalOpen(false);
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (err) {
+      alert("Network error deleting user account.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filteredUsers = usersList.filter(
     (u) =>
       u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -274,13 +306,25 @@ export function UsersView() {
                       {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => handleOpenEdit(u)}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
-                      >
-                        <Edit2 className="h-3.5 w-3.5 inline mr-1 text-slate-500" />
-                        Edit
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleOpenEdit(u)}
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 inline mr-1 text-slate-500" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            setUserToDelete(u);
+                            setDeleteModalOpen(true);
+                          }}
+                          className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 shadow-xs"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 inline mr-1 text-rose-500" />
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -532,6 +576,61 @@ export function UsersView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE USER CONFIRMATION MODAL */}
+      {deleteModalOpen && userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Delete User Account</h3>
+              <button onClick={() => setDeleteModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl bg-rose-50 p-4 border border-rose-200">
+                <p className="text-sm font-semibold text-rose-900">
+                  ⚠️ This action cannot be undone!
+                </p>
+              </div>
+
+              <div className="space-y-2 text-xs text-slate-700">
+                <p>
+                  You are about to permanently delete the user account:
+                </p>
+                <div className="rounded-lg bg-slate-100 p-3 border border-slate-200">
+                  <p className="font-bold text-slate-900">{userToDelete.fullName}</p>
+                  <p className="text-slate-600">@{userToDelete.username}</p>
+                  <p className="text-slate-500">{userToDelete.email}</p>
+                </div>
+                <p className="font-semibold text-slate-800">
+                  All associated data, audit logs, and assignments will be preserved for historical records, but this account cannot be used to log in.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteModalOpen(false)}
+                  disabled={deleting}
+                  className="rounded-xl border border-slate-200 px-4 py-2 font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteUser}
+                  disabled={deleting}
+                  className="rounded-xl bg-rose-600 px-5 py-2 font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+                >
+                  {deleting ? "Deleting..." : "Delete Account"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

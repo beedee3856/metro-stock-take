@@ -160,3 +160,50 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!hasPermission(user.role, "MANAGE_USERS")) {
+      return NextResponse.json({ error: "Forbidden: Only administrators can delete users" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("id");
+
+    if (!userId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+    }
+
+    // Prevent deleting the current user
+    if (userId === user.id) {
+      return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 });
+    }
+
+    // Delete the user
+    const deletedUser = await db.delete(users).where(eq(users.id, userId)).returning();
+
+    if (deletedUser.length === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    await logAudit({
+      userId: user.id,
+      userName: user.fullName,
+      userRole: user.role,
+      action: "USER_DELETE",
+      entityType: "USER",
+      entityId: userId,
+      oldValue: { username: deletedUser[0].username, role: deletedUser[0].role, fullName: deletedUser[0].fullName },
+    });
+
+    return NextResponse.json({ success: true, message: "User deleted successfully" });
+  } catch (error) {
+    console.error("User deletion error:", error);
+    return NextResponse.json({ error: "Failed to delete user" }, { status: 500 });
+  }
+}
