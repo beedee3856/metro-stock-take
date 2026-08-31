@@ -67,6 +67,13 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Check file size (100MB max)
+    const maxSize = 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert("File size exceeds 100MB limit. Please upload a smaller file.");
+      return;
+    }
+
     setFileName(file.name);
     const reader = new FileReader();
 
@@ -77,6 +84,14 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+
+        // Check row count limit
+        if (rows.length > 100000) {
+          alert(
+            `File contains ${rows.length} rows. Maximum is 100,000 rows per file. Please split into multiple files.`
+          );
+          return;
+        }
 
         setParsedRawRows(rows);
         setStep(2); // Proceed to Step 2 Validate
@@ -93,6 +108,12 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
   const triggerValidation = async (rows: Record<string, unknown>[], fName: string) => {
     setValidating(true);
     try {
+      // Increase timeout for large files (100K rows)
+      const timeout = Math.max(30000, rows.length * 0.05); // 30s minimum, ~0.05s per row
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
       const res = await fetch("/api/items/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,7 +122,10 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
           rows,
           fileName: fName,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const json = await res.json();
       if (res.ok && json.success) {
@@ -115,7 +139,11 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
         setStep(1);
       }
     } catch (err) {
-      alert("Network error during validation.");
+      if ((err as Error).name === "AbortError") {
+        alert("Validation timeout. File may be too large. Please split into smaller files.");
+      } else {
+        alert("Network error during validation.");
+      }
       setStep(1);
     } finally {
       setValidating(false);
@@ -126,6 +154,13 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
   const handleCommitImport = async () => {
     setImporting(true);
     try {
+      // Increase timeout significantly for large imports (up to 100K rows)
+      // Large imports may take 60+ seconds
+      const timeout = Math.max(120000, parsedRawRows.length * 0.2); // 2 min minimum, ~0.2s per row
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
       const res = await fetch("/api/items/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -135,7 +170,10 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
           fileName,
           updateExisting,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const json = await res.json();
       if (res.ok && json.success) {
@@ -146,7 +184,13 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
         alert(json.error || "Import transaction failed.");
       }
     } catch (err) {
-      alert("Network error committing import.");
+      if ((err as Error).name === "AbortError") {
+        alert(
+          "Import timeout. Large files (50K+ rows) may take several minutes. Please wait and check the import batch status."
+        );
+      } else {
+        alert("Network error committing import.");
+      }
     } finally {
       setImporting(false);
     }
@@ -173,7 +217,7 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
           <div>
             <h3 className="text-base font-bold text-slate-900">Item Master Multi-Step Import Wizard</h3>
             <p className="text-xs text-slate-500">
-              Bulk upload products from Excel (.xlsx) or CSV (.csv) with strict database validation
+              Bulk upload up to 100,000 items from Excel (.xlsx) or CSV (.csv) with strict database validation
             </p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
@@ -226,7 +270,8 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
               <h4 className="mt-4 text-base font-bold text-slate-900">Upload Item Master Spreadsheet</h4>
               <p className="mt-1 text-xs text-slate-500 max-w-md">
                 Supported formats: Microsoft Excel (.xlsx, .xls) and Comma-Separated Values (.csv).
-                Records will not be inserted immediately until validation passes.
+                <br />
+                Maximum 100,000 items per file. Records will not be inserted immediately until validation passes.
               </p>
 
               <label className="mt-6 flex cursor-pointer items-center gap-2 rounded-xl bg-rose-600 px-5 py-3 text-xs font-bold text-white shadow-md hover:bg-rose-700 active:scale-95 transition-all">
@@ -249,6 +294,11 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
               <h4 className="mt-4 text-base font-bold text-slate-900">Validating Data Integrity...</h4>
               <p className="mt-1 text-xs text-slate-500">
                 Checking for missing names, duplicate item codes, barcode formats, and valid numerical prices...
+              </p>
+              <p className="mt-3 text-[11px] text-slate-400">
+                {parsedRawRows.length > 10000
+                  ? `Processing ${parsedRawRows.length.toLocaleString()} items. This may take a minute...`
+                  : "Validating rows..."}
               </p>
             </div>
           )}
@@ -370,11 +420,22 @@ export function ImportWizard({ onClose, onSuccess }: ImportWizardProps) {
                 </label>
               </div>
 
+              {parsedRawRows.length > 50000 && (
+                <div className="rounded-xl bg-blue-50 p-3.5 text-xs text-blue-900 border border-blue-200">
+                  <p className="font-bold">⏱️ Large Import Notice:</p>
+                  <p className="mt-0.5 text-[11px] text-blue-800">
+                    Your import contains {parsedRawRows.length.toLocaleString()} items. This may take{" "}
+                    {Math.ceil(parsedRawRows.length / 50000 * 2)} to 5 minutes to complete. Please do not close the
+                    browser.
+                  </p>
+                </div>
+              )}
+
               <div className="rounded-xl bg-amber-50 p-3.5 text-xs text-amber-900 border border-amber-200">
                 <p className="font-bold">Transaction Safety:</p>
                 <p className="mt-0.5 text-[11px] text-amber-800">
-                  Data is imported within a PostgreSQL transaction. If any database constraint fails,
-                  all changes are rolled back.
+                  Data is imported within a PostgreSQL transaction. If any database constraint fails, all changes are
+                  rolled back.
                 </p>
               </div>
             </div>

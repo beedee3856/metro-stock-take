@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { Sidebar, NavSection } from "@/components/Navigation/Sidebar";
 import { Header } from "@/components/Navigation/Header";
 import { LoginView } from "@/components/Auth/LoginView";
+import { IdleTimeoutWarning } from "@/components/Auth/IdleTimeoutWarning";
 import { DashboardView } from "@/components/Dashboard/DashboardView";
 import { CountingTerminal } from "@/components/Counting/CountingTerminal";
 import { MyTasksView } from "@/components/MyTasks/MyTasksView";
@@ -45,6 +46,9 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
+      {/* Idle Timeout Warning Modal */}
+      <IdleTimeoutWarning />
+
       {/* Responsive Sidebar */}
       <Sidebar
         activeSection={activeSection}

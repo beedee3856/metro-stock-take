@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Initialize user on mount
   useEffect(() => {
     fetchCurrentUser();
   }, [fetchCurrentUser]);

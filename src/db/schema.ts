@@ -117,8 +117,14 @@ export const items = pgTable("items", {
 }, (t) => [
   index("idx_items_code").on(t.itemCode),
   index("idx_items_ean").on(t.eanCode),
+  index("idx_items_sku").on(t.sku),
   index("idx_items_name").on(t.itemName),
   index("idx_items_dept").on(t.departmentId),
+  index("idx_items_active").on(t.isActive),
+  // Composite indexes for common query patterns
+  index("idx_items_lookup").on(t.isActive, t.itemCode),
+  index("idx_items_ean_active").on(t.isActive, t.eanCode),
+  index("idx_items_sku_active").on(t.isActive, t.sku),
 ]);
 
 // 6. STOCK-TAKING SESSIONS

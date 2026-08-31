@@ -23,6 +23,9 @@ import {
   History,
   X,
   Sparkles,
+  Clock,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 
 interface TaskLocation {
@@ -533,9 +536,9 @@ export function CountingTerminal() {
           </div>
         </div>
 
-        {/* Selected Location Progress Bar */}
+        {/* Selected Location Progress Bar & Close Assignment Action */}
         {selectedTask && (
-          <div className="mt-4 border-t border-slate-100 pt-3">
+          <div className="mt-4 space-y-3 border-t border-slate-100 pt-3">
             <div className="flex items-center justify-between text-xs text-slate-600">
               <span>
                 Progress: <strong className="text-slate-900">{selectedTask.countedItemsCount}</strong> of{" "}
@@ -543,11 +546,33 @@ export function CountingTerminal() {
               </span>
               <span className="font-bold text-rose-600">{selectedTask.progress}%</span>
             </div>
-            <div className="mt-1.5 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
               <div
                 className="h-full rounded-full bg-rose-600 transition-all duration-300"
                 style={{ width: `${selectedTask.progress}%` }}
               ></div>
+            </div>
+
+            {/* Prominent Close Assignment Button */}
+            <div className="flex flex-col gap-2 pt-2">
+              {selectedTask.status !== "SUBMITTED" && (
+                <button
+                  type="button"
+                  onClick={handleOpenCompletionModal}
+                  disabled={recentCounts.length === 0}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/40 hover:shadow-emerald-600/60 hover:from-emerald-700 hover:to-emerald-800 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span>Complete Assignment & Send for Review</span>
+                  <ArrowRight className="h-4 w-4 ml-auto" />
+                </button>
+              )}
+              {selectedTask.status === "SUBMITTED" && (
+                <div className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800 border border-blue-200">
+                  <Clock className="h-5 w-5" />
+                  <span>Awaiting Supervisor Review</span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -845,22 +870,11 @@ export function CountingTerminal() {
         <div className="space-y-4 lg:col-span-5">
           {/* Complete Location Submission Card */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">Location Status</h4>
-                <p className="text-xs text-slate-500">
-                  {selectedTask?.locationCode} — {selectedTask?.status}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleOpenCompletionModal}
-                disabled={!selectedTask || recentCounts.length === 0}
-                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 active:scale-95 disabled:opacity-40"
-              >
-                <CheckSquare className="h-3.5 w-3.5" />
-                <span>Submit Location</span>
-              </button>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900">Location Status</h4>
+              <p className="text-xs text-slate-500">
+                {selectedTask?.locationCode} — {selectedTask?.status}
+              </p>
             </div>
 
             <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center text-xs">
@@ -994,51 +1008,77 @@ export function CountingTerminal() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-              <CheckSquare className="h-6 w-6" />
+              <CheckCircle2 className="h-6 w-6" />
             </div>
 
             <h3 className="mt-3 text-lg font-bold text-slate-900">
-              Location Summary & Submission
+              Close Assignment for Supervisor Review
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              Confirm physical count completion for location <strong>{selectedTask?.locationCode}</strong>.
+              Location: <strong>{selectedTask?.locationCode}</strong> — <strong>{selectedTask?.locationName}</strong>
             </p>
 
-            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-600">Expected Items:</span>
-                <strong className="text-slate-900">{locationSummary.expected}</strong>
+            {/* Count Summary */}
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-600">Expected Items in Location:</span>
+                <strong className="text-slate-900 text-sm">{locationSummary.expected}</strong>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Counted Items:</span>
-                <strong className="text-emerald-600">{locationSummary.counted}</strong>
+              <div className="flex justify-between items-center border-t border-slate-200 pt-2">
+                <span className="text-slate-600">Items You Counted:</span>
+                <strong className="text-emerald-600 text-sm">{locationSummary.counted}</strong>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Uncounted Items:</span>
-                <strong className={locationSummary.uncounted > 0 ? "text-amber-600" : "text-slate-900"}>
-                  {locationSummary.uncounted}
-                </strong>
-              </div>
+              {locationSummary.uncounted > 0 && (
+                <div className="flex justify-between items-center border-t border-slate-200 pt-2">
+                  <span className="text-slate-600">Items Not Counted:</span>
+                  <strong className="text-amber-600 text-sm">{locationSummary.uncounted}</strong>
+                </div>
+              )}
             </div>
 
+            {/* Warning for Uncounted Items */}
             {locationSummary.uncounted > 0 && (
               <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200 flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
                 <span>
-                  Warning: {locationSummary.uncounted} expected item(s) have not been counted in this aisle.
+                  <strong className="block">Incomplete Count:</strong>
+                  {locationSummary.uncounted} expected item(s) have not been counted. You can still submit for review.
                 </span>
               </div>
             )}
 
+            {/* What Happens Next */}
+            <div className="mt-4 rounded-xl bg-blue-50 p-3 border border-blue-200">
+              <p className="text-xs font-semibold text-blue-900 mb-2">What happens next:</p>
+              <ul className="text-xs text-blue-800 space-y-1.5">
+                <li className="flex gap-2">
+                  <span className="font-bold text-blue-600">1.</span>
+                  <span>Your count data is submitted for supervisor/admin review</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-bold text-blue-600">2.</span>
+                  <span>Supervisor will verify counts and check for variances</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-bold text-blue-600">3.</span>
+                  <span>They can approve the count or request a recount if needed</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-bold text-blue-600">4.</span>
+                  <span>You'll receive notification of their decision</span>
+                </li>
+              </ul>
+            </div>
+
             <p className="mt-4 text-xs font-semibold text-slate-800">
-              Are you sure you want to submit this location for supervisor review?
+              Are you ready to submit this assignment for review?
             </p>
 
             <div className="mt-5 flex gap-3">
               <button
                 type="button"
                 onClick={() => setCompletionModalOpen(false)}
-                className="flex-1 rounded-xl border border-slate-300 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="flex-1 rounded-xl border border-slate-300 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 Continue Counting
               </button>
@@ -1046,9 +1086,19 @@ export function CountingTerminal() {
                 type="button"
                 onClick={handleConfirmSubmitLocation}
                 disabled={submittingLocation}
-                className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
               >
-                {submittingLocation ? "Submitting..." : "Submit Location"}
+                {submittingLocation ? (
+                  <>
+                    <Clock className="h-3.5 w-3.5" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-3.5 w-3.5" />
+                    Submit Assignment
+                  </>
+                )}
               </button>
             </div>
           </div>
