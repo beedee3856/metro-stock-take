@@ -223,11 +223,11 @@ export async function POST(req: Request) {
     let targetLocations: { id: string }[] = [];
     if (Array.isArray(selectedLocationIds) && selectedLocationIds.length > 0) {
       targetLocations = selectedLocationIds.map((id: string) => ({ id }));
-    } else if (type === "FULL") {
+    } else if (type === "FULL" && resolvedStoreId) {
       targetLocations = await db
         .select({ id: locations.id })
         .from(locations)
-        .where(storeId ? eq(locations.storeId, storeId) : undefined);
+        .where(eq(locations.storeId, resolvedStoreId));
     }
 
     if (targetLocations.length > 0) {
@@ -260,7 +260,7 @@ export async function POST(req: Request) {
       newValue: {
         stockTakeNumber: newStockTake.stockTakeNumber,
         name: newStockTake.name,
-        storeId,
+        storeId: resolvedStoreId,
         locationsCount: targetLocations.length,
       },
       reason: "New stock-taking session initialized",
