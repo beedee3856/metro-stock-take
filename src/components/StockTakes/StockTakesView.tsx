@@ -751,13 +751,12 @@ export function StockTakesView() {
                         className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-rose-500 focus:outline-hidden"
                       >
                         <option value="">Select a location</option>
-                        {stLocations
-                          .filter((loc) => !loc.assignedUserId)
-                          .map((loc) => (
-                            <option key={loc.id} value={loc.id}>
-                              {loc.locationCode} — {loc.locationName}
-                            </option>
-                          ))}
+                        {stLocations.map((loc) => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.locationCode} — {loc.locationName}
+                            {loc.assignedUserName ? ` (Assigned: ${loc.assignedUserName})` : " (Unassigned)"}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -907,7 +906,7 @@ export function StockTakesView() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* Reassign button */}
+                            {/* Assign / Reassign button */}
                             {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
                               <button
                                 onClick={() => {
@@ -917,7 +916,7 @@ export function StockTakesView() {
                                 }}
                                 className="rounded-lg border border-slate-200 px-2.5 py-1 text-slate-700 hover:bg-slate-100 font-semibold"
                               >
-                                Reassign
+                                {loc.assignedUserId ? "Reassign" : "Assign"}
                               </button>
                             )}
 
