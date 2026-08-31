@@ -333,11 +333,6 @@ export function UsersView() {
           </table>
         </div>
       </div>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
       {/* CREATE / EDIT USER MODAL */}
       {createModalOpen && (
