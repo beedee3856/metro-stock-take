@@ -60,7 +60,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     if (!hasPermission(user.role, "MANAGE_ITEMS")) {
-      return NextResponse.json({ error: "Forbidden: Only administrators can modify items" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden: You don't have permission to modify items" }, { status: 403 });
     }
 
     const { id } = await params;

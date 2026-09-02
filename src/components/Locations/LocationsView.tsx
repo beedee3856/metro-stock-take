@@ -12,6 +12,7 @@ import {
   Printer,
   X,
   CheckCircle,
+  Edit2,
 } from "lucide-react";
 
 interface LocationItem {
@@ -42,8 +43,22 @@ export function LocationsView() {
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Edit Modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<LocationItem | null>(null);
+  const [editLocationCode, setEditLocationCode] = useState("");
+  const [editLocationName, setEditLocationName] = useState("");
+  const [editAisle, setEditAisle] = useState("");
+  const [editShelfSection, setEditShelfSection] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+
   // Barcode Tag Print Modal
   const [printTagLoc, setPrintTagLoc] = useState<LocationItem | null>(null);
+
+  // Delete All Locations
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
+  const [deleteAllError, setDeleteAllError] = useState("");
+  const [deleteAllSuccess, setDeleteAllSuccess] = useState("");
 
   const fetchLocations = async () => {
     try {
@@ -98,6 +113,84 @@ export function LocationsView() {
     }
   };
 
+  const handleOpenEdit = (loc: LocationItem) => {
+    setEditingLocation(loc);
+    setEditLocationCode(loc.locationCode);
+    setEditLocationName(loc.locationName);
+    setEditAisle(loc.aisle || "");
+    setEditShelfSection(loc.shelfSection || "");
+    setEditDescription(loc.description || "");
+    setEditModalOpen(true);
+  };
+
+  const handleEditLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLocation || !editLocationCode.trim() || !editLocationName.trim()) return;
+
+    try {
+      setSaving(true);
+      const res = await fetch(`/api/locations/${editingLocation.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locationCode: editLocationCode,
+          locationName: editLocationName,
+          aisle: editAisle,
+          shelfSection: editShelfSection,
+          description: editDescription,
+        }),
+      });
+
+      if (res.ok) {
+        setEditModalOpen(false);
+        setEditingLocation(null);
+        fetchLocations();
+      }
+    } catch (err) {
+      console.error("Failed to edit location", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteAllLocations = async () => {
+    if (locations.length === 0) {
+      setDeleteAllError("No locations to delete");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete all ${locations.length} locations? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setDeleteAllLoading(true);
+      setDeleteAllError("");
+      setDeleteAllSuccess("");
+
+      const res = await fetch("/api/locations", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const json = await res.json();
+
+      if (res.ok) {
+        setDeleteAllSuccess(`Deleted ${json.deletedCount || 0} locations successfully!`);
+        fetchLocations();
+        setTimeout(() => setDeleteAllSuccess(""), 3000);
+      } else {
+        setDeleteAllError(json.error || "Failed to delete locations");
+      }
+    } catch (err) {
+      console.error("Failed to delete all locations", err);
+      setDeleteAllError("Network error while deleting locations");
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Top Header */}
@@ -109,15 +202,25 @@ export function LocationsView() {
           </p>
         </div>
 
-        {user?.role === "ADMINISTRATOR" && (
-          <button
-            onClick={() => setCreateModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 active:scale-98 transition-all"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Location</span>
-          </button>
-        )}
+        {user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR" ? (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCreateModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 active:scale-98 transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Location</span>
+            </button>
+            <button
+              onClick={handleDeleteAllLocations}
+              disabled={locations.length === 0 || deleteAllLoading}
+              title="Delete all locations from the system"
+              className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 active:scale-98 transition-all"
+            >
+              {deleteAllLoading ? "Deleting..." : "Delete All"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* Search Bar */}
@@ -131,6 +234,18 @@ export function LocationsView() {
           className="w-full text-xs text-slate-800 focus:outline-hidden"
         />
       </div>
+
+      {/* Error and Success Messages */}
+      {deleteAllError && (
+        <div className="rounded-xl bg-red-50 border border-red-200 p-3">
+          <p className="text-xs font-semibold text-red-700">{deleteAllError}</p>
+        </div>
+      )}
+      {deleteAllSuccess && (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+          <p className="text-xs font-semibold text-emerald-700">{deleteAllSuccess}</p>
+        </div>
+      )}
 
       {/* Locations Table */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
@@ -179,14 +294,26 @@ export function LocationsView() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => setPrintTagLoc(loc)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold"
-                        title="Print Barcode Tag"
-                      >
-                        <Printer className="h-3.5 w-3.5 text-rose-600" />
-                        <span>Print Tag</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {(user?.role === "ADMINISTRATOR" || user?.role === "SUPERVISOR") && (
+                          <button
+                            onClick={() => handleOpenEdit(loc)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold"
+                            title="Edit Location"
+                          >
+                            <Edit2 className="h-3.5 w-3.5 text-blue-600" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setPrintTagLoc(loc)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold"
+                          title="Print Barcode Tag"
+                        >
+                          <Printer className="h-3.5 w-3.5 text-rose-600" />
+                          <span>Print Tag</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -280,6 +407,97 @@ export function LocationsView() {
                   className="rounded-xl bg-rose-600 px-5 py-2 font-bold text-white hover:bg-rose-700 disabled:opacity-50"
                 >
                   {saving ? "Creating..." : "Create Location"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT LOCATION MODAL */}
+      {editModalOpen && editingLocation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Edit Location</h3>
+              <button onClick={() => setEditModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditLocation} className="mt-4 space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700">Location Code *</label>
+                <input
+                  type="text"
+                  required
+                  value={editLocationCode}
+                  onChange={(e) => setEditLocationCode(e.target.value)}
+                  placeholder="e.g. AISLE-09"
+                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700">Location Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editLocationName}
+                  onChange={(e) => setEditLocationName(e.target.value)}
+                  placeholder="e.g. Aisle 09 — Bakery & Fresh Breads"
+                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700">Aisle Number</label>
+                  <input
+                    type="text"
+                    value={editAisle}
+                    onChange={(e) => setEditAisle(e.target.value)}
+                    placeholder="09"
+                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700">Shelf / Section</label>
+                  <input
+                    type="text"
+                    value={editShelfSection}
+                    onChange={(e) => setEditShelfSection(e.target.value)}
+                    placeholder="Bay A to C"
+                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700">Description</label>
+                <textarea
+                  rows={2}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Physical placement details..."
+                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-xl bg-rose-600 px-5 py-2 font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>

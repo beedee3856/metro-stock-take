@@ -104,6 +104,12 @@ export function StockTakesView() {
   const [deletingCounts, setDeletingCounts] = useState(false);
   const [deletingSession, setDeletingSession] = useState<string | null>(null);
 
+  // All locations from the Locations & Aisles section
+  const [allLocations, setAllLocations] = useState<
+    Array<{ id: string; locationCode: string; locationName: string; aisle?: string | null }>
+  >([]);
+  const [allLocationsLoading, setAllLocationsLoading] = useState(false);
+
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -112,6 +118,9 @@ export function StockTakesView() {
   const [selectedTakerId, setSelectedTakerId] = useState("");
   const [quickAssignLocationId, setQuickAssignLocationId] = useState("");
   const [quickAssignTakerId, setQuickAssignTakerId] = useState("");
+  const [quickAssignLoading, setQuickAssignLoading] = useState(false);
+  const [quickAssignError, setQuickAssignError] = useState("");
+  const [quickAssignSuccess, setQuickAssignSuccess] = useState("");
 
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
   const [generateAdjustments, setGenerateAdjustments] = useState(true);
@@ -173,13 +182,20 @@ export function StockTakesView() {
         }
       })
       .catch(() => {});
+    // Fetch all locations from Locations & Aisles section
+    setAllLocationsLoading(true);
+    fetch("/api/locations")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.locations) {
+          setAllLocations(data.locations);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch locations", err);
+      })
+      .finally(() => setAllLocationsLoading(false));
   }, [fetchStockTakes]);
-
-  useEffect(() => {
-    if (quickAssignLocationId && !stLocations.some((loc) => loc.id === quickAssignLocationId && !loc.assignedUserId)) {
-      setQuickAssignLocationId("");
-    }
-  }, [quickAssignLocationId, stLocations]);
 
   // Load detailed stock take when selected
   const fetchSessionDetails = useCallback(async (stId: string) => {
@@ -355,9 +371,16 @@ export function StockTakesView() {
   };
 
   const handleQuickAssignLocation = async () => {
-    if (!selectedST || !quickAssignLocationId) return;
+    if (!selectedST || !quickAssignLocationId) {
+      setQuickAssignError("Please select a location");
+      return;
+    }
 
     try {
+      setQuickAssignLoading(true);
+      setQuickAssignError("");
+      setQuickAssignSuccess("");
+
       const res = await fetch(`/api/stock-takes/${selectedST.id}/assignments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -367,13 +390,24 @@ export function StockTakesView() {
         }),
       });
 
+      const json = await res.json();
+
       if (res.ok) {
+        setQuickAssignSuccess("Location assigned successfully!");
         setQuickAssignLocationId("");
         setQuickAssignTakerId("");
+        // Clear success message after 3 seconds
+        setTimeout(() => setQuickAssignSuccess(""), 3000);
+        // Refresh the session details
         fetchSessionDetails(selectedST.id);
+      } else {
+        setQuickAssignError(json.error || "Failed to assign location");
       }
     } catch (err) {
       console.error("Failed to assign stock taker to location", err);
+      setQuickAssignError("Network error while assigning location");
+    } finally {
+      setQuickAssignLoading(false);
     }
   };
 
@@ -747,16 +781,35 @@ export function StockTakesView() {
                       </label>
                       <select
                         value={quickAssignLocationId}
-                        onChange={(e) => setQuickAssignLocationId(e.target.value)}
+                        onChange={(e) => {
+                          setQuickAssignLocationId(e.target.value);
+                          setQuickAssignError("");
+                          setQuickAssignSuccess("");
+                        }}
                         className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-rose-500 focus:outline-hidden"
                       >
-                        <option value="">Select a location</option>
-                        {stLocations.map((loc) => (
-                          <option key={loc.id} value={loc.id}>
-                            {loc.locationCode} — {loc.locationName}
-                            {loc.assignedUserName ? ` (Assigned: ${loc.assignedUserName})` : " (Unassigned)"}
+                        <option value="">
+                          {allLocationsLoading ? "Loading locations..." : "Select a location"}
+                        </option>
+                        {stLocations && stLocations.length > 0 ? (
+                          stLocations.map((stLoc) => {
+                            // Get the full location data from allLocations
+                            const fullLocData = allLocations.find((loc) => loc.id === stLoc.locationId);
+                            const locCode = fullLocData?.locationCode || stLoc.locationCode;
+                            const locName = fullLocData?.locationName || stLoc.locationName;
+
+                            return (
+                              <option key={stLoc.id} value={stLoc.id}>
+                                {locCode} — {locName}
+                                {stLoc.assignedUserName ? ` (Assigned to: ${stLoc.assignedUserName})` : " (Unassigned)"}
+                              </option>
+                            );
+                          })
+                        ) : (
+                          <option disabled>
+                            {allLocationsLoading ? "Loading..." : "No locations in this stock take"}
                           </option>
-                        ))}
+                        )}
                       </select>
                     </div>
 
@@ -766,7 +819,11 @@ export function StockTakesView() {
                       </label>
                       <select
                         value={quickAssignTakerId}
-                        onChange={(e) => setQuickAssignTakerId(e.target.value)}
+                        onChange={(e) => {
+                          setQuickAssignTakerId(e.target.value);
+                          setQuickAssignError("");
+                          setQuickAssignSuccess("");
+                        }}
                         className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-rose-500 focus:outline-hidden"
                       >
                         <option value="">Unassigned</option>
@@ -782,13 +839,25 @@ export function StockTakesView() {
                       <button
                         type="button"
                         onClick={handleQuickAssignLocation}
-                        disabled={!quickAssignLocationId}
+                        disabled={!quickAssignLocationId || quickAssignLoading}
                         className="w-full rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Assign Staff
+                        {quickAssignLoading ? "Assigning..." : "Assign Staff"}
                       </button>
                     </div>
                   </div>
+
+                  {/* Error and Success Messages */}
+                  {quickAssignError && (
+                    <div className="mt-3 rounded-xl bg-red-50 border border-red-200 p-3">
+                      <p className="text-xs font-semibold text-red-700">{quickAssignError}</p>
+                    </div>
+                  )}
+                  {quickAssignSuccess && (
+                    <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+                      <p className="text-xs font-semibold text-emerald-700">{quickAssignSuccess}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

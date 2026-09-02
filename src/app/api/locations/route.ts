@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     }
 
     if (!hasPermission(user.role, "MANAGE_LOCATIONS")) {
-      return NextResponse.json({ error: "Forbidden: Only administrators can create locations" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden: You don't have permission to manage locations" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -132,5 +132,45 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Location creation error:", error);
     return NextResponse.json({ error: "Failed to create location" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!hasPermission(user.role, "MANAGE_LOCATIONS")) {
+      return NextResponse.json({ error: "Forbidden: You don't have permission to manage locations" }, { status: 403 });
+    }
+
+    // Get count of locations to delete
+    const allLocations = await db.select().from(locations);
+    const deletedCount = allLocations.length;
+
+    if (deletedCount === 0) {
+      return NextResponse.json({ error: "No locations to delete" }, { status: 400 });
+    }
+
+    // Delete all locations
+    await db.delete(locations);
+
+    await logAudit({
+      userId: user.id,
+      userName: user.fullName,
+      userRole: user.role,
+      action: "DELETE_ALL_LOCATIONS",
+      entityType: "LOCATION",
+      entityId: "ALL",
+      newValue: { deletedCount },
+      reason: `Deleted all ${deletedCount} locations from the system`,
+    });
+
+    return NextResponse.json({ success: true, deletedCount });
+  } catch (error) {
+    console.error("Delete all locations error:", error);
+    return NextResponse.json({ error: "Failed to delete locations" }, { status: 500 });
   }
 }

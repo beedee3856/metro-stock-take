@@ -270,7 +270,7 @@ export async function POST(req: Request) {
     }
 
     if (!hasPermission(user.role, "IMPORT_ITEMS")) {
-      return NextResponse.json({ error: "Forbidden: Only administrators can import items" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden: You don't have permission to import items" }, { status: 403 });
     }
 
     const body = await req.json();

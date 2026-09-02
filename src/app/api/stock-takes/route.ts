@@ -219,15 +219,15 @@ export async function POST(req: Request) {
 
     const newStockTake = inserted[0];
 
-    // If locations were provided or if FULL store, assign locations to this stock take
+    // If locations were provided, assign them. Otherwise, for FULL type, assign all locations from system.
     let targetLocations: { id: string }[] = [];
     if (Array.isArray(selectedLocationIds) && selectedLocationIds.length > 0) {
       targetLocations = selectedLocationIds.map((id: string) => ({ id }));
-    } else if (type === "FULL" && resolvedStoreId) {
+    } else if (type === "FULL") {
+      // For FULL stock takes, add all available locations from the system
       targetLocations = await db
         .select({ id: locations.id })
-        .from(locations)
-        .where(eq(locations.storeId, resolvedStoreId));
+        .from(locations);
     }
 
     if (targetLocations.length > 0) {

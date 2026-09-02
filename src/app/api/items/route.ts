@@ -121,7 +121,7 @@ export async function POST(req: Request) {
     }
 
     if (!hasPermission(user.role, "MANAGE_ITEMS")) {
-      return NextResponse.json({ error: "Forbidden: Only administrators can create items" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden: You don't have permission to manage items" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -216,7 +216,7 @@ export async function DELETE(req: Request) {
     }
 
     if (!hasPermission(user.role, "MANAGE_ITEMS")) {
-      return NextResponse.json({ error: "Forbidden: Only administrators can delete items" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden: You don't have permission to delete items" }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
