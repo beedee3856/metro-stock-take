@@ -73,6 +73,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         status: "APPROVED",
         approvedAt: now,
         approvedBy: user.id,
+        assignedUserId: null,
         updatedAt: now,
       })
       .where(eq(stockTakeLocations.id, id))

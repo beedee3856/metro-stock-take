@@ -889,9 +889,11 @@ export function StockTakesView() {
       return (
         <option key={loc.id} value={loc.id}>
           {loc.locationCode} — {loc.locationName}
-          {stockTakeLocation
+                    {stockTakeLocation
             ? stockTakeLocation.assignedUserName
               ? ` (Already assigned to: ${stockTakeLocation.assignedUserName})`
+              : ["APPROVED", "COMPLETED"].includes(stockTakeLocation.status)
+              ? " (Approved - open for re-assignment)"
               : " (Already in stock take - unassigned)"
             : " (Available)"}
         </option>
