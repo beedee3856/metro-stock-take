@@ -31,6 +31,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Forbidden: You cannot approve your own stock count." }, { status: 403 });
     }
 
+    // Only locations the taker has submitted (closed) can enter review
+    if (!["SUBMITTED", "UNDER_REVIEW"].includes(stl.status)) {
+      return NextResponse.json(
+        {
+          error: `This location has not been submitted by the stock taker yet (status: ${stl.status}). Only submitted locations can be approved or rejected.`,
+        },
+        { status: 409 }
+      );
+    }
     const now = new Date();
 
     if (action === "REJECT") {

@@ -173,6 +173,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "You are not authorized to count this location." }, { status: 403 });
     }
 
+    // A submitted / closed location is read-only — counts can no longer change
+    if (["SUBMITTED", "UNDER_REVIEW", "APPROVED", "COMPLETED", "LOCKED"].includes(stl.status)) {
+      return NextResponse.json(
+        {
+          error:
+            "Count already submitted. This location has been closed and submitted for review — counts can no longer be edited.",
+        },
+        { status: 423 }
+      );
+    }
     // Get item info
     const itemRows = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
     if (itemRows.length === 0) {

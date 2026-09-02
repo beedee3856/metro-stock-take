@@ -69,6 +69,7 @@ interface StockTakeLocation {
 
 interface StockCountRow {
   id: string;
+  stockTakeLocationId?: string;
   itemId: string;
   itemName?: string;
   itemCode?: string;
@@ -123,6 +124,10 @@ export function StockTakesView() {
   const [quickAssignSuccess, setQuickAssignSuccess] = useState("");
 
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
+  
+  // Send-for-recount confirmation modal (negative variance lines)
+  const [recountModalLoc, setRecountModalLoc] = useState<StockTakeLocation | null>(null);
+  const [sendingRecount, setSendingRecount] = useState(false);
   const [generateAdjustments, setGenerateAdjustments] = useState(true);
 
   const [unlockModalOpen, setUnlockModalOpen] = useState(false);
@@ -385,9 +390,9 @@ export function StockTakesView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          stockTakeLocationId: quickAssignLocationId,
-          assignedUserId: quickAssignTakerId || null,
-        }),
+  locationId: quickAssignLocationId,
+  assignedUserId: quickAssignTakerId || null,
+}),
       });
 
       const json = await res.json();
@@ -408,6 +413,43 @@ export function StockTakesView() {
       setQuickAssignError("Network error while assigning location");
     } finally {
       setQuickAssignLoading(false);
+    }
+  };
+
+  const handleDeleteAllLocations = async () => {
+    if (!selectedST || stLocations.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete all ${stLocations.length} locations from this stock take? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setDeleteAllLocationsLoading(true);
+
+      // Delete all stock take locations for this stock take
+      const res = await fetch(`/api/stock-takes/${selectedST.id}/locations`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const json = await res.json();
+
+      if (res.ok) {
+        // Refresh the session details
+        fetchSessionDetails(selectedST.id);
+        setQuickAssignSuccess("All locations deleted successfully!");
+        setTimeout(() => setQuickAssignSuccess(""), 3000);
+      } else {
+        setQuickAssignError(json.error || "Failed to delete locations");
+      }
+    } catch (err) {
+      console.error("Failed to delete all locations", err);
+      setQuickAssignError("Network error while deleting locations");
+    } finally {
+      setDeleteAllLocationsLoading(false);
     }
   };
 
@@ -448,6 +490,49 @@ export function StockTakesView() {
     }
   };
 
+  // Count lines with a NEGATIVE variance inside one session location
+  const negativeCountsFor = (locationId: string) =>
+    stCounts.filter(
+      (c) => c.stockTakeLocationId === locationId && (c.varianceQuantity ?? 0) < 0
+    );
+
+  // Supervisor flags every negative-variance line of a submitted location for recount
+  const handleSendForRecount = async () => {
+    if (!recountModalLoc || !selectedST) return;
+    const negatives = negativeCountsFor(recountModalLoc.id);
+    if (negatives.length === 0) return;
+
+    try {
+      setSendingRecount(true);
+      for (const c of negatives) {
+        const res = await fetch("/api/recounts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            stockTakeId: selectedST.id,
+            stockTakeLocationId: recountModalLoc.id,
+            itemId: c.itemId,
+            originalStockCountId: c.id,
+            reason: "NEGATIVE_VARIANCE",
+            notes: `Negative variance of ${c.varianceQuantity} ${
+              c.varianceQuantity === -1 ? "unit" : "units"
+            } on ${c.itemName || c.itemCode} sent for recount by ${user?.fullName || "supervisor"}.`,
+          }),
+        });
+        if (!res.ok) {
+          const json = await res.json();
+          throw new Error(json.error || "Failed to create recount");
+        }
+      }
+      setRecountModalLoc(null);
+      fetchSessionDetails(selectedST.id);
+    } catch (err) {
+      console.error("Send for recount error", err);
+      alert(err instanceof Error ? err.message : "Failed to send location for recount");
+    } finally {
+      setSendingRecount(false);
+    }
+  };
   // Export handlers
   const handleExportExcel = () => {
     if (!selectedST) return;
@@ -780,37 +865,43 @@ export function StockTakesView() {
                         Location
                       </label>
                       <select
-                        value={quickAssignLocationId}
-                        onChange={(e) => {
-                          setQuickAssignLocationId(e.target.value);
-                          setQuickAssignError("");
-                          setQuickAssignSuccess("");
-                        }}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-rose-500 focus:outline-hidden"
-                      >
-                        <option value="">
-                          {allLocationsLoading ? "Loading locations..." : "Select a location"}
-                        </option>
-                        {stLocations && stLocations.length > 0 ? (
-                          stLocations.map((stLoc) => {
-                            // Get the full location data from allLocations
-                            const fullLocData = allLocations.find((loc) => loc.id === stLoc.locationId);
-                            const locCode = fullLocData?.locationCode || stLoc.locationCode;
-                            const locName = fullLocData?.locationName || stLoc.locationName;
+  value={quickAssignLocationId}
+  onChange={(e) => {
+    setQuickAssignLocationId(e.target.value);
+    setQuickAssignError("");
+    setQuickAssignSuccess("");
+  }}
+  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-rose-500 focus:outline-hidden"
+>
+  <option value="">
+    {allLocationsLoading ? "Loading locations..." : "Select a location"}
+  </option>
 
-                            return (
-                              <option key={stLoc.id} value={stLoc.id}>
-                                {locCode} — {locName}
-                                {stLoc.assignedUserName ? ` (Assigned to: ${stLoc.assignedUserName})` : " (Unassigned)"}
-                              </option>
-                            );
-                          })
-                        ) : (
-                          <option disabled>
-                            {allLocationsLoading ? "Loading..." : "No locations in this stock take"}
-                          </option>
-                        )}
-                      </select>
+  {allLocationsLoading ? (
+    <option disabled>Loading locations...</option>
+  ) : allLocations && allLocations.length > 0 ? (
+    allLocations.map((loc) => {
+      const stockTakeLocation = stLocations?.find(
+        (stLoc) => stLoc.locationId === loc.id
+      );
+
+      return (
+        <option key={loc.id} value={loc.id}>
+          {loc.locationCode} — {loc.locationName}
+          {stockTakeLocation
+            ? stockTakeLocation.assignedUserName
+              ? ` (Already assigned to: ${stockTakeLocation.assignedUserName})`
+              : " (Already in stock take - unassigned)"
+            : " (Available)"}
+        </option>
+      );
+    })
+  ) : (
+    <option disabled>
+      No locations found. Please create locations under Locations & Aisles first.
+    </option>
+  )}
+</select>
                     </div>
 
                     <div>
@@ -972,6 +1063,13 @@ export function StockTakesView() {
                           >
                             {loc.status}
                           </span>
+                          {loc.status === "SUBMITTED" && negativeCountsFor(loc.id).length > 0 && (
+                            <span className="mt-1 flex items-center gap-1 rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200">
+                              <AlertTriangle className="h-3 w-3" />
+                              {negativeCountsFor(loc.id).length} negative variance line
+                              {negativeCountsFor(loc.id).length === 1 ? "" : "s"}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
@@ -993,6 +1091,15 @@ export function StockTakesView() {
                             {loc.status === "SUBMITTED" &&
                               (user?.role === "SUPERVISOR" || user?.role === "ADMINISTRATOR") && (
                                 <>
+                                  {negativeCountsFor(loc.id).length > 0 && (
+                                    <button
+                                      onClick={() => setRecountModalLoc(loc)}
+                                      className="rounded-lg bg-amber-500 px-2.5 py-1 text-white font-bold hover:bg-amber-600"
+                                      title="Flag all negative-variance lines for physical recount"
+                                    >
+                                      Send for Recount
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => handleLocationReview(loc.id, "APPROVE")}
                                     className="rounded-lg bg-emerald-600 px-2.5 py-1 text-white font-bold hover:bg-emerald-700"
@@ -1529,6 +1636,68 @@ export function StockTakesView() {
                 className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
               >
                 Confirm Unlock
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SEND FOR RECOUNT CONFIRMATION (negative variance lines) */}
+      {recountModalLoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+              <RotateCcw className="h-6 w-6" />
+            </div>
+
+            <h3 className="mt-3 text-base font-bold text-slate-900">Send for Recount?</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Location <strong>{recountModalLoc.locationCode}</strong> —{" "}
+              {recountModalLoc.locationName}. The following negative-variance lines will be
+              flagged for physical recount and the location status becomes{" "}
+              <strong>RECOUNT_REQUIRED</strong>.
+            </p>
+
+            <div className="mt-4 max-h-56 overflow-y-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="border-b border-slate-200 bg-slate-50 font-semibold text-slate-700">
+                  <tr>
+                    <th className="px-3 py-2">Item</th>
+                    <th className="px-3 py-2">System</th>
+                    <th className="px-3 py-2">Counted</th>
+                    <th className="px-3 py-2">Variance</th>
+                    <th className="px-3 py-2">Value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {negativeCountsFor(recountModalLoc.id).map((c) => (
+                    <tr key={c.id}>
+                      <td className="px-3 py-2 font-semibold text-slate-900">{c.itemName}</td>
+                      <td className="px-3 py-2">{c.systemQuantity ?? "-"}</td>
+                      <td className="px-3 py-2 font-bold">{c.physicalQuantity}</td>
+                      <td className="px-3 py-2 font-bold text-rose-600">{c.varianceQuantity}</td>
+                      <td className="px-3 py-2 text-rose-600">${c.varianceValue || "0.00"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRecountModalLoc(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendForRecount}
+                disabled={sendingRecount}
+                className="rounded-xl bg-amber-500 px-5 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+              >
+                {sendingRecount ? "Sending…" : "Send for Recount"}
               </button>
             </div>
           </div>

@@ -24,8 +24,14 @@ function AppContent() {
   const { user, loading } = useAuth();
   const [activeSection, setActiveSection] = useState<NavSection>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [importWizardOpen, setImportWizardOpen] = useState(false);
+    const [importWizardOpen, setImportWizardOpen] = useState(false);
+  // Deep-link: which assigned location the stock taker clicked "Start Counting" on
+  const [countingTaskId, setCountingTaskId] = useState<string | null>(null);
 
+  const startCounting = (taskId: string) => {
+    setCountingTaskId(taskId);
+    setActiveSection("counting-terminal");
+  };
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-900 text-white">
@@ -68,13 +74,21 @@ function AppContent() {
         {/* Dynamic Section Body */}
         <main className="flex-1 p-4 lg:p-8">
           {activeSection === "dashboard" && (
-            <DashboardView onSelectSection={setActiveSection} />
+            <DashboardView onSelectSection={setActiveSection} onStartCounting={startCounting} />
           )}
 
-          {activeSection === "counting-terminal" && <CountingTerminal />}
+          {activeSection === "counting-terminal" && (
+            <CountingTerminal
+              initialTaskId={countingTaskId}
+              onCloseCount={() => {
+                setCountingTaskId(null);
+                setActiveSection("my-tasks");
+              }}
+            />
+          )}
 
           {activeSection === "my-tasks" && (
-            <MyTasksView onSelectSection={setActiveSection} />
+            <MyTasksView onSelectSection={setActiveSection} onStartCounting={startCounting} />
           )}
 
           {activeSection === "stock-takes" && <StockTakesView />}

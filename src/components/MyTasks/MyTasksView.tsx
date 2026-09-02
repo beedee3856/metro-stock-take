@@ -52,9 +52,10 @@ interface RecountItem {
 
 interface MyTasksViewProps {
   onSelectSection: (section: NavSection) => void;
+  onStartCounting?: (taskId: string) => void;
 }
 
-export function MyTasksView({ onSelectSection }: MyTasksViewProps) {
+export function MyTasksView({ onSelectSection, onStartCounting }: MyTasksViewProps) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [recounts, setRecounts] = useState<RecountItem[]>([]);
@@ -350,13 +351,20 @@ export function MyTasksView({ onSelectSection }: MyTasksViewProps) {
 
               {/* Action Buttons */}
               <div className="mt-5 pt-3 border-t border-slate-100 flex gap-2">
-                <button
-                  onClick={() => onSelectSection("counting-terminal")}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700 active:scale-98 transition-all"
+                                <button
+                  onClick={() =>
+                    onStartCounting ? onStartCounting(t.id) : onSelectSection("counting-terminal")
+                  }
+                  disabled={t.status === "SUBMITTED" || t.status === "APPROVED"}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ScanLine className="h-4 w-4" />
                   <span>
-                    {t.countedItemsCount > 0 ? "CONTINUE" : "START"}
+                    {t.status === "SUBMITTED" || t.status === "APPROVED"
+                      ? "CLOSED"
+                      : t.countedItemsCount > 0
+                      ? "CONTINUE"
+                      : "START"}
                   </span>
                 </button>
 

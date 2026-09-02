@@ -165,7 +165,48 @@ export async function GET() {
 
     const overallProgress = itemsExpected > 0 ? Math.min(100, Math.round((itemsCounted / itemsExpected) * 100)) : 0;
 
+    // Review queue: locations submitted by stock takers, awaiting supervisor action
+    const queueRows = await db
+      .select({
+        id: stockTakeLocations.id,
+        stockTakeId: stockTakeLocations.stockTakeId,
+        stockTakeNumber: stockTakes.stockTakeNumber,
+        locationCode: locations.locationCode,
+        locationName: locations.locationName,
+        takerName: users.fullName,
+        submittedAt: stockTakeLocations.submittedAt,
+        expected: stockTakeLocations.expectedItemsCount,
+        counted: stockTakeLocations.countedItemsCount,
+      })
+      .from(stockTakeLocations)
+      .leftJoin(stockTakes, eq(stockTakeLocations.stockTakeId, stockTakes.id))
+      .leftJoin(locations, eq(stockTakeLocations.locationId, locations.id))
+      .leftJoin(users, eq(stockTakeLocations.assignedUserId, users.id))
+      .where(eq(stockTakeLocations.status, "SUBMITTED"))
+      .orderBy(desc(stockTakeLocations.submittedAt));
+
+    const reviewQueue = await Promise.all(
+      queueRows.map(async (r) => {
+        const agg = await db
+          .select({
+            netQty: sql<number>`coalesce(sum(${stockCounts.varianceQuantity}), 0)`,
+            netVal: sql<number>`coalesce(sum(cast(${stockCounts.varianceValue} as numeric)), 0)`,
+            negativeLines: sql<number>`coalesce(sum(case when ${stockCounts.varianceQuantity} < 0 then 1 else 0 end), 0)`,
+          })
+          .from(stockCounts)
+          .where(eq(stockCounts.stockTakeLocationId, r.id));
+        const a = agg[0];
+        return {
+          ...r,
+          netVarianceQty: Number(a?.netQty ?? 0),
+          netVarianceVal: Number(a?.netVal ?? 0),
+          negativeLines: Number(a?.negativeLines ?? 0),
+        };
+      })
+    );
+
     return NextResponse.json({
+      reviewQueue,
       summary: {
         activeStockTakes: activeStockTakes.length,
         plannedStockTakes: plannedStockTakes.length,

@@ -80,7 +80,14 @@ interface BarcodeDetectorConstructor {
   getSupportedFormats?: () => Promise<string[]>;
 }
 
-export function CountingTerminal() {
+interface CountingTerminalProps {
+  /** Task (stock_take_locations id) chosen on the Dashboard / My Tasks board */
+  initialTaskId?: string | null;
+  /** Called when the taker closes a submitted count and returns to My Tasks */
+  onCloseCount?: () => void;
+}
+
+export function CountingTerminal({ initialTaskId = null, onCloseCount }: CountingTerminalProps) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<TaskLocation[]>([]);
   const [selectedTask, setSelectedTask] = useState<TaskLocation | null>(null);
@@ -118,6 +125,8 @@ export function CountingTerminal() {
     uncounted: number;
   } | null>(null);
   const [submittingLocation, setSubmittingLocation] = useState(false);
+    // True once the taker has submitted (closed) this location — blocks further edits
+  const [locationSubmitted, setLocationSubmitted] = useState(false);
 
   // Recent counts in this session
   const [recentCounts, setRecentCounts] = useState<CountRecord[]>([]);
@@ -144,8 +153,10 @@ export function CountingTerminal() {
         setTasks(tList);
         setSelectedTask((current) => {
           if (tList.length === 0) return null;
-          if (current && tList.some((task: TaskLocation) => task.id === current.id)) {
-            return current;
+          if (current) {
+            // Refresh the open task so its status/progress stay live after submit
+            const refreshed = tList.find((task: TaskLocation) => task.id === current.id);
+            if (refreshed) return refreshed;
           }
           return tList[0] as TaskLocation;
         });
@@ -160,6 +171,16 @@ export function CountingTerminal() {
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  // Deep link: open the exact assignment the taker clicked on Dashboard / My Tasks
+  useEffect(() => {
+    if (!initialTaskId) return;
+    const found = tasks.find((t) => t.id === initialTaskId);
+    if (found) {
+      setSelectedTask(found);
+      setLocationSubmitted(["SUBMITTED", "APPROVED", "COMPLETED"].includes(found.status));
+    }
+  }, [initialTaskId, tasks]);
 
   // Load recount context from sessionStorage if available
   useEffect(() => {
@@ -202,7 +223,11 @@ export function CountingTerminal() {
   useEffect(() => {
     if (selectedTask) {
       fetchLocationCounts();
+      setLocationSubmitted(
+        ["SUBMITTED", "APPROVED", "COMPLETED"].includes(selectedTask.status)
+      );
       // Auto-focus barcode input
+
       setTimeout(() => scanInputRef.current?.focus(), 150);
     }
   }, [selectedTask, fetchLocationCounts]);
@@ -383,6 +408,14 @@ export function CountingTerminal() {
       return;
     }
 
+    // A submitted (closed) location is read-only for the stock taker
+    if (locationSubmitted || ["SUBMITTED", "APPROVED", "COMPLETED", "LOCKED"].includes(selectedTask.status)) {
+      setMessage({
+        text: "This location has already been submitted and closed. Counts can no longer be edited.",
+        type: "error",
+      });
+      return;
+    }
     const numQty = typeof quantity === "string" ? parseInt(quantity, 10) : quantity;
     if (isNaN(numQty) || numQty < 0) {
       setMessage({ text: "Please enter a valid non-negative physical count", type: "error" });
@@ -497,6 +530,8 @@ export function CountingTerminal() {
       });
 
       setCompletionModalOpen(false);
+      setLocationSubmitted(true);
+      setActiveItem(null);
       fetchTasks();
     } catch (err) {
       setMessage({ text: "Network error submitting location", type: "error" });
@@ -608,7 +643,33 @@ export function CountingTerminal() {
           </div>
         )}
       </div>
-
+      {/* Count closed / submitted banner */}
+      {locationSubmitted && selectedTask && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-xs sm:flex-row sm:items-center sm:justify-between animate-in fade-in zoom-in-95">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+            <div>
+              <p className="text-sm font-bold text-emerald-900">
+                Location {selectedTask.locationCode} submitted — your count is closed
+              </p>
+              <p className="text-xs text-emerald-700">
+                Counts are locked and now awaiting supervisor review. It will appear on the
+                administrator dashboard for approval or recount.
+              </p>
+            </div>
+          </div>
+          {onCloseCount && (
+            <button
+              type="button"
+              onClick={onCloseCount}
+              className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95"
+            >
+              <CheckSquare className="h-4 w-4" />
+              <span>Close Count & Return to My Tasks</span>
+            </button>
+          )}
+        </div>
+      )}
       {/* Main Counting Terminal Interface */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Column: Barcode Scanner & Search & Entry (7 cols) */}
@@ -911,7 +972,7 @@ export function CountingTerminal() {
               <button
                 type="button"
                 onClick={handleOpenCompletionModal}
-                disabled={!selectedTask || recentCounts.length === 0}
+                disabled={!selectedTask || recentCounts.length === 0 || locationSubmitted}
                 className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 active:scale-95 disabled:opacity-40"
               >
                 <CheckSquare className="h-3.5 w-3.5" />

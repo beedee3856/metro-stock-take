@@ -24,6 +24,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { NavSection } from "../Navigation/Sidebar";
+import { TakerAssignmentBoard, ReviewQueueBoard } from "./WorkflowBoard";
 
 interface DashboardData {
   summary: {
@@ -69,9 +70,10 @@ interface DashboardData {
 
 interface DashboardViewProps {
   onSelectSection: (section: NavSection) => void;
+  onStartCounting?: (taskId: string) => void;
 }
 
-export function DashboardView({ onSelectSection }: DashboardViewProps) {
+export function DashboardView({ onSelectSection, onStartCounting }: DashboardViewProps) {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,8 +159,18 @@ export function DashboardView({ onSelectSection }: DashboardViewProps) {
     locationsSplit: [],
   };
 
-  return (
+    return (
     <div className="space-y-6 pb-12">
+      {/* Stock taker: his assignments, one tap to start counting */}
+      {user?.role === "STOCK_TAKER" && onStartCounting && (
+        <TakerAssignmentBoard onStartCounting={onStartCounting} />
+      )}
+
+      {/* Admin / Supervisor / Manager: submitted locations awaiting review */}
+      {user?.role !== "STOCK_TAKER" && user?.role !== "AUDITOR" && (
+        <ReviewQueueBoard onOpenSession={() => onSelectSection("stock-takes")} />
+      )}
+
       {/* Top Banner & Quick Actions */}
       <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-rose-950 p-6 text-white shadow-xl md:flex-row md:items-center md:justify-between">
         <div>
