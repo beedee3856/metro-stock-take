@@ -110,6 +110,7 @@ export function StockTakesView() {
     Array<{ id: string; locationCode: string; locationName: string; aisle?: string | null }>
   >([]);
   const [allLocationsLoading, setAllLocationsLoading] = useState(false);
+  const [deleteAllLocationsLoading, setDeleteAllLocationsLoading] = useState(false);
 
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);

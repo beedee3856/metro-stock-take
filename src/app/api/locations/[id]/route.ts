@@ -71,7 +71,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       action: "LOCATION_UPDATE",
       entityType: "LOCATION",
       entityId: id,
-      oldValue: { code: oldLocation.locationCode, name: oldLocation.locationName },
+      previousValue: { code: oldLocation.locationCode, name: oldLocation.locationName },
       newValue: { code: updatedLocation.locationCode, name: updatedLocation.locationName },
     });
 
