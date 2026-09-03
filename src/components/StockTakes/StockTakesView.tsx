@@ -552,7 +552,7 @@ export function StockTakesView() {
       "Status": c.countStatus,
       "Count Date": new Date(c.createdAt).toLocaleDateString(),
     }));
-    exportToExcel(rows, `${selectedST.stockTakeNumber}-Detailed-Counts`);
+    exportToExcel(rows, `${selectedST.name}-Detailed-Counts`);
   };
 
   const handleExportPDF = () => {
@@ -573,13 +573,14 @@ export function StockTakesView() {
     exportDetailedPDF({
       title: "Stock Taking Comprehensive Audit Report",
       stockTakeNumber: selectedST.stockTakeNumber,
+      stockTakeName: selectedST.name,
       storeName: selectedST.storeName || "All branches",
       date: new Date(selectedST.startDate).toLocaleDateString(),
       status: selectedST.status,
       preparedBy: user?.fullName || "Stock Audit Admin",
       columns,
       rows,
-      fileName: `${selectedST.stockTakeNumber}-Stock-Take-Report`,
+      fileName: `${selectedST.name}-Stock-Take-Report`,
     });
   };
 

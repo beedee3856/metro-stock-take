@@ -64,7 +64,8 @@ export function ReportsView() {
   // Export to Excel handler
   const handleExportExcel = () => {
     if (!reportData) return;
-    const stNumber = (reportData.stockTake as { stockTakeNumber?: string })?.stockTakeNumber || "ST-REPORT";
+    const stockTake = (reportData.stockTake as { name?: string }) || {};
+    const stockTakeName = stockTake.name || "Stock Take Report";
 
     let rows: Record<string, unknown>[] = [];
     if (reportType === "SUMMARY") {
@@ -79,7 +80,7 @@ export function ReportsView() {
       return;
     }
 
-    exportToExcel(rows, `${stNumber}-${reportType}-Report`);
+    exportToExcel(rows, `${stockTakeName}-${reportType}-Report`);
   };
 
   // Export to PDF handler
@@ -87,6 +88,7 @@ export function ReportsView() {
     if (!reportData) return;
     const st = (reportData.stockTake as Record<string, string>) || {};
     const stNumber = st.stockTakeNumber || "ST-REPORT";
+    const stockTakeName = st.name || "Stock Take Report";
     const storeName = st.storeName || "Metro Grand Hypermarket";
 
     let columns: string[] = [];
@@ -167,13 +169,14 @@ export function ReportsView() {
     exportDetailedPDF({
       title: `${reportType} INVENTORY REPORT`,
       stockTakeNumber: stNumber,
+      stockTakeName,
       storeName,
       date: new Date().toLocaleDateString(),
       status: st.status || "FINALIZED",
       preparedBy: user?.fullName || "Audit Team",
       columns,
       rows,
-      fileName: `${stNumber}-${reportType}-Report`,
+      fileName: `${stockTakeName}-${reportType}-Report`,
     });
   };
 
