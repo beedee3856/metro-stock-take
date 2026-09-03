@@ -6,12 +6,13 @@ export function exportToExcel(data: Record<string, unknown>[], fileName: string,
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-  XLSX.writeFile(workbook, `${fileName}.xlsx`);
+  XLSX.writeFile(workbook, `${sanitizeFileName(fileName)}.xlsx`);
 }
 
 export function exportDetailedPDF(options: {
   title: string;
   stockTakeNumber: string;
+  stockTakeName: string;
   storeName: string;
   date: string;
   status: string;
@@ -32,7 +33,7 @@ export function exportDetailedPDF(options: {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text(String(options.storeName || "STOCK TAKE REPORT").toUpperCase(), 14, 12);
+  doc.text(String(options.stockTakeName || "STOCK TAKE REPORT").toUpperCase(), 14, 12);
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -168,5 +169,9 @@ export function exportDetailedPDF(options: {
     doc.text(`Page ${i} of ${totalPages}  |  Metro Stock-Taking System Confidential`, 14, 205);
   }
 
-  doc.save(`${options.fileName}.pdf`);
+  doc.save(`${sanitizeFileName(options.fileName)}.pdf`);
+}
+
+function sanitizeFileName(fileName: string) {
+  return fileName.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-").trim() || "report";
 }
