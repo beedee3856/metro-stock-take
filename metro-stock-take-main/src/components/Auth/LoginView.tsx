@@ -40,8 +40,8 @@ export function LoginView() {
       <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-rose-600 to-rose-500 text-white shadow-xl shadow-rose-950/60">
-            <ScanLine className="h-8 w-8" />
+          <div className="mx-auto h-24 w-24 overflow-hidden rounded-2xl shadow-xl shadow-rose-950/60">
+            <img src="/metrocount-logo.png" alt="MetroCount PRO" className="h-full w-full object-cover" />
           </div>
           <div className="flex items-center justify-center gap-2">
             <h1 className="text-2xl font-black tracking-tight text-white">MetroCount PRO</h1>

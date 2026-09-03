@@ -73,8 +73,8 @@ export function Sidebar({ activeSection, onSelectSection, isOpen, onCloseMobile 
       >
         {/* Brand Header */}
         <div className="flex h-18 items-center gap-3 border-b border-slate-800 px-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 text-white shadow-md shadow-rose-900/40">
-            <ScanLine className="h-6 w-6" />
+          <div className="h-10 w-10 overflow-hidden rounded-xl shadow-md shadow-rose-900/40">
+            <img src="/metrocount-logo.png" alt="MetroCount PRO" className="h-full w-full object-cover" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
