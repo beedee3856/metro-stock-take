@@ -140,6 +140,7 @@ export function StockTakesView() {
   const [newSTStoreId, setNewSTStoreId] = useState("");
   const [newSTStoreName, setNewSTStoreName] = useState("");
   const [availableStores, setAvailableStores] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [savingStore, setSavingStore] = useState(false);
   const [newSTBlind, setNewSTBlind] = useState(false);
   const [newST100Pct, setNewST100Pct] = useState(true);
   const [newSTNotes, setNewSTNotes] = useState("");
@@ -251,6 +252,40 @@ export function StockTakesView() {
   };
 
   // Create Stock Take
+  const handleSaveCustomStore = async () => {
+    const storeName = newSTStoreName.trim();
+    if (!storeName) {
+      setCreateError("Enter a custom store name before saving it.");
+      return;
+    }
+
+    try {
+      setSavingStore(true);
+      setCreateError("");
+      const res = await fetch("/api/stores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: storeName }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.store) {
+        setCreateError(json.error || "Unable to save store.");
+        return;
+      }
+
+      setAvailableStores((currentStores) => {
+        const withoutDuplicate = currentStores.filter((store) => store.id !== json.store.id);
+        return [...withoutDuplicate, json.store].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      setNewSTStoreId(json.store.id);
+    } catch (error) {
+      console.error("Failed to save custom store", error);
+      setCreateError("Network error while saving store.");
+    } finally {
+      setSavingStore(false);
+    }
+  };
+
   const handleCreateStockTake = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError("");
@@ -1454,7 +1489,17 @@ export function StockTakesView() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700">Custom Store Name</label>
+                <div className="flex items-center justify-between">
+                  <label className="block font-semibold text-slate-700">Custom Store Name</label>
+                  <button
+                    type="button"
+                    onClick={handleSaveCustomStore}
+                    disabled={savingStore || !newSTStoreName.trim()}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-700 disabled:cursor-not-allowed disabled:text-slate-400"
+                  >
+                    {savingStore ? "Saving..." : "Save to Store List"}
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={newSTStoreName}
