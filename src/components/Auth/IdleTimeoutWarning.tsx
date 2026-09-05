@@ -17,7 +17,10 @@ export function IdleTimeoutWarning() {
   useEffect(() => {
     if (!user) return;
 
-    const updateActivity = () => {
+    const updateActivity = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-idle-timeout-warning]")) return;
+
       setLastActivityTime(Date.now());
       setShowWarning(false);
       setSecondsLeft(WARNING_BEFORE_LOGOUT_SECONDS);
@@ -67,12 +70,16 @@ export function IdleTimeoutWarning() {
     setShowWarning(false);
   };
 
-  const handleLogoutNow = async () => {
+  const handleLogoutNow = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     await logout();
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+    <div
+      data-idle-timeout-warning
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+    >
       <div className="flex max-w-sm flex-col rounded-2xl bg-white shadow-2xl animate-in zoom-in-95">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-amber-100 bg-amber-50 px-6 py-4">
@@ -103,7 +110,10 @@ export function IdleTimeoutWarning() {
             Logout
           </button>
           <button
-            onClick={handleStayActive}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleStayActive();
+            }}
             className="flex-1 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
           >
             Stay Active
